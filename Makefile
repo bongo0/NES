@@ -25,8 +25,8 @@ test/bin:
 	mkdir $@
 
 test: $(LIB_OBJS) $(TESTBINS)
-	for test in $(TESTBINS); do ./$$test ; done
+	for test in $(TESTBINS); do ./$$test --verbose=; done
 
 
 clean:
-	$(RM) -r bin/* obj/*
+	$(RM) -r bin/* obj/* test/bin/*
