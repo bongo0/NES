@@ -1,5 +1,6 @@
 #include "CPU_6502.h"
 
+#include <memory.h>
 #include <stdint.h>
 
 /*
@@ -11,6 +12,8 @@ design hmm..
 
     }
 */
+uint16_t CPU_get_operand(CPU_6502 *cpu);
+uint8_t CPU_get_op(CPU_6502 *cpu);
 
 CPU_6502 *CPU_init(CPU_6502 *cpu) {
   // CPU registers                     = at power-up
@@ -21,28 +24,89 @@ CPU_6502 *CPU_init(CPU_6502 *cpu) {
   cpu->state.SP = 0xFD; // stack pointer        = 0xFD
   cpu->state.P = 0x34;  // processor status reg = 0x34
 
+  cpu->state.cycle_count = 0;
+  cpu->state.page_cross = 0;
+  cpu->state.operand = 0;
   return cpu;
 };
 
-uint8_t CPU_get_status_flag(CPU_6502 *cpu, uint8_t flag){return (cpu->state.P & flag);};
+uint8_t CPU_get_status_flag(CPU_6502 *cpu, uint8_t flag) {
+  return (cpu->state.P & flag);
+};
 
 void CPU_set_status_carry(CPU_6502 *cpu) { cpu->state.P |= CPU_STATUS_CARRY; };
 void CPU_set_status_zero(CPU_6502 *cpu) { cpu->state.P |= CPU_STATUS_ZERO; };
-void CPU_set_status_interupt_disable(CPU_6502 *cpu) { cpu->state.P |= CPU_STATUS_INTERUPT_DISABLE; };
-void CPU_set_status_decimal(CPU_6502 *cpu) { cpu->state.P |= CPU_STATUS_DECIMAL; };
+void CPU_set_status_interupt_disable(CPU_6502 *cpu) {
+  cpu->state.P |= CPU_STATUS_INTERUPT_DISABLE;
+};
+void CPU_set_status_decimal(CPU_6502 *cpu) {
+  cpu->state.P |= CPU_STATUS_DECIMAL;
+};
 void CPU_set_status_break(CPU_6502 *cpu) { cpu->state.P |= CPU_STATUS_BREAK; };
-void CPU_set_status_reserved(CPU_6502 *cpu) { cpu->state.P |= CPU_STATUS_RESERVED; };
-void CPU_set_status_overflow(CPU_6502 *cpu) { cpu->state.P |= CPU_STATUS_OVERFLOW; };
-void CPU_set_status_negative(CPU_6502 *cpu) { cpu->state.P |= CPU_STATUS_NEGATIVE; };
+void CPU_set_status_reserved(CPU_6502 *cpu) {
+  cpu->state.P |= CPU_STATUS_RESERVED;
+};
+void CPU_set_status_overflow(CPU_6502 *cpu) {
+  cpu->state.P |= CPU_STATUS_OVERFLOW;
+};
+void CPU_set_status_negative(CPU_6502 *cpu) {
+  cpu->state.P |= CPU_STATUS_NEGATIVE;
+};
 
-void CPU_clear_status_flags(CPU_6502 *cpu, uint8_t flags) { cpu->state.P &= ~flags; };
+void CPU_clear_status_flags(CPU_6502 *cpu, uint8_t flags) {
+  cpu->state.P &= ~flags;
+};
+
+void CPU_print_state(CPU_6502 *cpu, FILE *fd) {
+  uint8_t op = CPU_get_op(cpu); // get current op
+  char *mode;
+  switch (CPU_addr_mode_table[op]) {
+  case IMMIDIATE: mode = "IMMIDIATE"; break;
+  case ZEROPAGE: mode = "ZEROPAGE"; break;
+  case ZEROPAGE_X: mode = "ZEROPAGE_X"; break;
+  case ZEROPAGE_Y: mode = "ZEROPAGE_Y"; break;
+  case ABSOLUTE: mode = "ABSOLUTE"; break;
+  case ABSOLUTE_X: mode = "ABSOLUTE_X"; break;
+  case ABSOLUTE_Y: mode = "ABSOLUTE_Y"; break;
+  case INDIRECT: mode = "INDIRECT"; break;
+  case INDIRECT_X: mode = "INDIRECT_X"; break;
+  case INDIRECT_Y: mode = "INDIRECT_Y"; break;
+  case RELATIVE: mode = "RELATIVE"; break;
+  case IMPLICIT: mode = "IMPLICIT"; break;
+  case ACCUMULATE:
+    mode = "ACCUMULATE";
+    break;
+    // what are these???
+  case M__AbsYW: mode = "M__AbsYW"; break;
+  case M__AbsXW: mode = "M__AbsXW"; break;
+  case M__IndYW: mode = "M__IndYW"; break;
+  case NONE: mode = "NONE"; break;
+  default: mode = "fell through"; break;
+  }
+
+  fprintf(fd,
+          "op 0x%02x %s %s last operand 0x%02x Cycle count %d Page cross %d\n"
+          "AC 0x%02x "
+          "X  0x%02x "
+          "Y  0x%02x \n"
+          "PC 0x%04x "
+          "SP 0x%02x "
+          "P  0x%02x \n",
+          op, CPU_op_names[op], mode, cpu->state.operand,
+          CPU_op_cycles_table[op], cpu->state.page_cross, cpu->state.A,
+          cpu->state.X, cpu->state.Y, cpu->state.PC, cpu->state.SP,
+          cpu->state.P);
+}
 
 CPU_state CPU_get_state(CPU_6502 *CPU) { return CPU->state; };
 
-uint8_t CPU_read_memory(CPU_6502 *CPU, uint16_t adr) {
-  return CPU->ram[adr];
+void CPU_load_to_memory(CPU_6502 *cpu, uint8_t *data, uint16_t size) {
+  memcpy(cpu->ram, data, size);
 };
 
+uint8_t CPU_read_memory(CPU_6502 *CPU, uint16_t adr) { return CPU->ram[adr]; };
+
+// does not change the state
 uint8_t CPU_get_op(CPU_6502 *CPU) {
   return CPU_read_memory(CPU, CPU->state.PC);
 };
@@ -50,76 +114,168 @@ uint8_t CPU_get_op(CPU_6502 *CPU) {
 void CPU_exec(CPU_6502 *CPU) {
 
   uint8_t op = CPU_get_op(CPU);
-
+  CPU_get_operand(CPU);
   CPU_exec_instruction(CPU, op);
 
   // cycles
 };
 
 void CPU_exec_instruction(CPU_6502 *CPU, uint8_t op_code) {
-  char *tmp = CPU_op_table[op_code](CPU, CPU_addr_mode_table[op_code]);
-  printf("0x%02x == %s\n", op_code, tmp);
+  CPU_op_table[op_code](CPU, CPU_addr_mode_table[op_code]);
+  // printf("0x%02x == %s  mode: ", op_code, tmp);
+  // printf("\n");
 };
-
-
-
-uint16_t CPU_get_operand(CPU_6502 *cpu, uint8_t op_code) { return 0; };
 
 //#v	Immediate	Uses the 8-bit operand itself as the value for the
 // operation, rather than fetching a value from a memory address.
 uint16_t CPU_get_immidiate(CPU_6502 *cpu) {
-  return CPU_read_memory(cpu, ++cpu->state.PC);
+  uint16_t operand = CPU_read_memory(cpu, ++cpu->state.PC);
+  cpu->state.operand = operand;
+  return operand;
 };
 
 // Implicit	Instructions like RTS or CLC have no address operand, the
 // destination of results are implied.
-uint16_t CPU_get_implicit(CPU_6502 *cpu, uint16_t addr) { return 0; };
+uint16_t CPU_get_implicit(CPU_6502 *cpu) { return 0; };
 
 // d	Zero page	Fetches the value from an 8-bit address on the zero
 // page.
-uint16_t CPU_get_zeropage(CPU_6502 *cpu, uint16_t addr) { return 0; };
+uint16_t CPU_get_zeropage(CPU_6502 *cpu) {
+  uint16_t operand = CPU_read_memory(cpu, ++cpu->state.PC);
+  cpu->state.operand = operand;
+  return operand;
+};
 
 // d,x	Zero page indexed	val = PEEK((arg + X) % 256)	4
-uint16_t CPU_get_zeropage_idx_X(CPU_6502 *cpu, uint16_t addr) { return 0; };
+uint16_t CPU_get_zeropage_idx_X(CPU_6502 *cpu) {
+  uint16_t operand = CPU_read_memory(cpu, ++cpu->state.PC);
+  operand = (operand + cpu->state.X) % 256;
+  cpu->state.operand = operand;
+  return operand;
+};
 
 // d,y	Zero page indexed	val = PEEK((arg + Y) % 256)	4
-uint16_t CPU_get_zeropage_idx_Y(CPU_6502 *cpu, uint16_t addr) { return 0; };
+uint16_t CPU_get_zeropage_idx_Y(CPU_6502 *cpu) {
+  uint16_t operand = CPU_read_memory(cpu, ++cpu->state.PC);
+  operand = (operand + cpu->state.Y) % 256;
+  cpu->state.operand = operand;
+  return operand;
+};
 
 //(a)	Indirect	The JMP instruction has a special indirect addressing
 // mode that can jump to the address stored in a 16-bit pointer anywhere in
 // memory.
-uint16_t CPU_get_indirect(CPU_6502 *cpu, uint16_t addr) { return 0; };
+uint16_t CPU_get_indirect(CPU_6502 *cpu) {
+  uint8_t low = CPU_read_memory(cpu, ++cpu->state.PC);
+  uint8_t high = CPU_read_memory(cpu, ++cpu->state.PC);
+  uint16_t operand = low | (high << 8);
+  cpu->state.operand = operand;
+  return operand;
+};
 
-//(d,x)	Indexed indirect	val = PEEK(PEEK((arg + X) % 256) + PEEK((arg + X
+//(d,x)	Indexed indirect	val = PEEK(PEEK((arg + X) % 256) + PEEK((arg +
+// X
 //+ 1) % 256) * 256)	6
-uint16_t CPU_get_indirect_idx_X(CPU_6502 *cpu, uint16_t addr) { return 0; };
+uint16_t CPU_get_indirect_idx_X(CPU_6502 *cpu) {
+  uint16_t operand;
+  uint16_t z = CPU_read_memory(cpu, ++cpu->state.PC);
+  z += cpu->state.X;
+
+  if (z == 0xff)
+    operand = CPU_read_memory(cpu, 0xFF) | (CPU_read_memory(cpu, 0x00) << 8);
+  else
+    operand = CPU_read_memory(cpu, z) | (CPU_read_memory(cpu, z + 1) << 8);
+
+  cpu->state.operand = operand;
+  return operand;
+};
 
 //(d),y	Indirect indexed	val = PEEK(PEEK(arg) + PEEK((arg + 1) % 256)
 //* 256 + Y)	5+ (+ means add a cycle for write instructions or for page
 // wrapping on read instructions)
-uint16_t CPU_get_indirect_idx_Y(CPU_6502 *cpu, uint16_t addr) { return 0; };
+uint16_t CPU_get_indirect_idx_Y(CPU_6502 *cpu) {
+  uint16_t operand;
+  uint16_t z = CPU_read_memory(cpu, ++cpu->state.PC);
+
+  if (z == 0xff)
+    operand = CPU_read_memory(cpu, 0xFF) | (CPU_read_memory(cpu, 0x00) << 8);
+  else
+    operand = CPU_read_memory(cpu, z) | (CPU_read_memory(cpu, z + 1) << 8);
+
+  // page crossed ?
+  operand += cpu->state.Y;
+  cpu->state.operand = operand;
+  return operand;
+};
 
 // a	Absolute	Fetches the value from a 16-bit address anywhere in
 // memory.
-uint16_t CPU_get_absolute(CPU_6502 *cpu, uint16_t addr) { return 0; };
+uint16_t CPU_get_absolute(CPU_6502 *cpu) {
+  uint8_t low = CPU_read_memory(cpu, ++cpu->state.PC);
+  uint8_t high = CPU_read_memory(cpu, ++cpu->state.PC);
+  uint16_t operand = low | (high << 8);
+  cpu->state.operand = operand;
+  return operand;
+};
 
 // a,x	Absolute indexed	val = PEEK(arg + X)	4+ (+ means add a cycle
 // for write instructions or for page wrapping on read instructions)
-uint16_t CPU_get_absolute_idx_X(CPU_6502 *cpu, uint16_t addr) { return 0; };
+uint16_t CPU_get_absolute_idx_X(CPU_6502 *cpu) {
+  uint16_t operand = CPU_get_absolute(cpu);
+
+  operand += cpu->state.X;
+
+  cpu->state.operand = operand;
+  return operand;
+};
 
 // a,y	Absolute indexed	val = PEEK(arg + Y)	4+ (+ means add a cycle
 // for write instructions or for page wrapping on read instructions)
-uint16_t CPU_get_absolute_idx_Y(CPU_6502 *cpu, uint16_t addr) { return 0; };
+uint16_t CPU_get_absolute_idx_Y(CPU_6502 *cpu) {
+  uint16_t operand = CPU_get_absolute(cpu);
+
+  operand += cpu->state.Y;
+
+  cpu->state.operand = operand;
+  return operand;
+};
 
 // A	Accumulator	Many instructions can operate on the accumulator, e.g.
 // LSR A. Some assemblers will treat no operand as an implicit A where
 // applicable.
-uint16_t CPU_get_accumulate(CPU_6502 *cpu, uint16_t addr) { return 0; };
+uint16_t CPU_get_accumulate(CPU_6502 *cpu) { return 0; };
 
 // label	Relative	Branch instructions (e.g. BEQ, BCS) have a
 // relative addressing mode that specifies an 8-bit signed offset relative to
 // the current PC.
-uint16_t CPU_get_relative(CPU_6502 *cpu, uint16_t addr) { return 0; };
+uint16_t CPU_get_relative(CPU_6502 *cpu) { return CPU_get_immidiate(cpu); };
+
+uint16_t CPU_get_operand(CPU_6502 *cpu) {
+  CPU_addr_mode mode = CPU_addr_mode_table[CPU_get_op(cpu)];
+  switch (mode) {
+  case IMMIDIATE: return CPU_get_immidiate(cpu);
+  case ZEROPAGE: return CPU_get_zeropage(cpu);
+  case ZEROPAGE_X: return CPU_get_zeropage_idx_X(cpu);
+  case ZEROPAGE_Y: return CPU_get_zeropage_idx_Y(cpu);
+  case ABSOLUTE: return CPU_get_absolute(cpu);
+  case ABSOLUTE_X: return CPU_get_absolute_idx_X(cpu);
+  case ABSOLUTE_Y: return CPU_get_absolute_idx_Y(cpu);
+  case INDIRECT: return CPU_get_indirect(cpu);
+  case INDIRECT_X: return CPU_get_indirect_idx_X(cpu);
+  case INDIRECT_Y: return CPU_get_indirect_idx_Y(cpu);
+  case RELATIVE: return CPU_get_relative(cpu);
+  case IMPLICIT: return CPU_get_implicit(cpu);
+  case ACCUMULATE:
+    return CPU_get_accumulate(cpu);
+    // what are these???
+  case M__AbsYW: return 0;
+  case M__AbsXW: return 0;
+  case M__IndYW: return 0;
+  case NONE: return 0;
+  default: return 0;
+  }
+  return 0;
+};
 
 // void* (CPU_6502 *cpu, CPU_addr_mode mode){return "";};
 void *BRK(CPU_6502 *cpu, CPU_addr_mode mode) { return "BRK"; };
@@ -132,7 +288,20 @@ void *RTS(CPU_6502 *cpu, CPU_addr_mode mode) { return "RTS"; };
 void *BVS(CPU_6502 *cpu, CPU_addr_mode mode) { return "BVS"; };
 void *NOP(CPU_6502 *cpu, CPU_addr_mode mode) { return "NOP"; };
 void *BCC(CPU_6502 *cpu, CPU_addr_mode mode) { return "BCC"; };
-void *LDY(CPU_6502 *cpu, CPU_addr_mode mode) { return "LDY"; };
+
+void *LDY(CPU_6502 *cpu, CPU_addr_mode mode) {
+
+  CPU_clear_status_flags(cpu, CPU_STATUS_ZERO | CPU_STATUS_NEGATIVE);
+  if (cpu->state.operand == 0) {
+    CPU_set_status_zero(cpu);
+  } else if (cpu->state.operand & 0x80) {
+    CPU_set_status_negative(cpu);
+  }
+  cpu->state.Y = cpu->state.operand;
+
+  return "LDY";
+};
+
 void *BCS(CPU_6502 *cpu, CPU_addr_mode mode) { return "BCS"; };
 void *CPY(CPU_6502 *cpu, CPU_addr_mode mode) { return "CPY"; };
 void *BNE(CPU_6502 *cpu, CPU_addr_mode mode) { return "BNE"; };
@@ -143,25 +312,34 @@ void *AND(CPU_6502 *cpu, CPU_addr_mode mode) { return "AND"; };
 void *EOR(CPU_6502 *cpu, CPU_addr_mode mode) { return "EOR"; };
 void *ADC(CPU_6502 *cpu, CPU_addr_mode mode) { return "ADC"; };
 void *STA(CPU_6502 *cpu, CPU_addr_mode mode) { return "STA"; };
-void *LDA(CPU_6502 *cpu, CPU_addr_mode mode) { return "LDA"; };
+
+void *LDA(CPU_6502 *cpu, CPU_addr_mode mode) {
+
+  CPU_clear_status_flags(cpu, CPU_STATUS_ZERO | CPU_STATUS_NEGATIVE);
+  if (cpu->state.operand == 0) {
+    CPU_set_status_zero(cpu);
+  } else if (cpu->state.operand & 0x80) {
+    CPU_set_status_negative(cpu);
+  }
+  cpu->state.A = cpu->state.operand;
+  return "LDA";
+};
+
 void *CPA(CPU_6502 *cpu, CPU_addr_mode mode) { return "CPA"; };
 void *SBC(CPU_6502 *cpu, CPU_addr_mode mode) { return "SBC"; };
 void *HLT(CPU_6502 *cpu, CPU_addr_mode mode) { return "HLT"; };
 
 void *LDX(CPU_6502 *cpu, CPU_addr_mode mode) {
-  if (mode == IMMIDIATE) {
-    uint16_t operand = CPU_get_immidiate(cpu);
 
-    CPU_clear_status_flags(cpu, CPU_STATUS_ZERO | CPU_STATUS_NEGATIVE); 
-    if (operand == 0) {
-      CPU_set_status_zero(cpu);
-    }
-    else if (operand & 0x80) {
-      CPU_set_status_negative(cpu);
-    }
-
-    cpu->state.X = operand;
+  CPU_clear_status_flags(cpu, CPU_STATUS_ZERO | CPU_STATUS_NEGATIVE);
+  if (cpu->state.operand == 0) {
+    CPU_set_status_zero(cpu);
+  } else if (cpu->state.operand & 0x80) {
+    CPU_set_status_negative(cpu);
   }
+
+  cpu->state.X = cpu->state.operand;
+
   return "LDX";
 };
 
@@ -220,7 +398,6 @@ void *JMP_Abs(CPU_6502 *cpu, CPU_addr_mode mode) { return "JMP_Abs"; };
 void *JMP_Ind(CPU_6502 *cpu, CPU_addr_mode mode) { return "JMP_Ind"; };
 void *SYA(CPU_6502 *cpu, CPU_addr_mode mode) { return "SYA"; };
 void *SXA(CPU_6502 *cpu, CPU_addr_mode mode) { return "SXA"; };
-
 
 // Look up tables
 // clang-format off
@@ -282,5 +459,27 @@ CPU_op_cycles_t CPU_op_cycles_table[] ={
         2,  5,  0,  8,  4,  4,  6,  6,  2,  4,  2,  7,  4,  4,  7,  7, //D
         2,  6,  2,  8,  3,  3,  5,  5,  2,  2,  2,  2,  4,  4,  6,  6, //E
         2,  5,  0,  8,  4,  4,  6,  6,  2,  4,  2,  7,  4,  4,  7,  7  //F
+};
+
+
+char* CPU_op_names[] = {
+//      0       1       2       3       4       5       6              7       8       9       A            B      C            D      E               F
+        "BRK",  "ORA",  "HLT",  "SLO",  "NOP",  "ORA",  "ASL_Memory",  "SLO",  "PHP",  "ORA",  "ASL_Acc",  "AAC",  "NOP",      "ORA",  "ASL_Memory",  "SLO", //0
+        "BPL",  "ORA",  "HLT",  "SLO",  "NOP",  "ORA",  "ASL_Memory",  "SLO",  "CLC",  "ORA",  "NOP",      "SLO",  "NOP",      "ORA",  "ASL_Memory",  "SLO", //1
+        "JSR",  "AND",  "HLT",  "RLA",  "BIT",  "AND",  "ROL_Memory",  "RLA",  "PLP",  "AND",  "ROL_Acc",  "AAC",  "BIT",      "AND",  "ROL_Memory",  "RLA", //2
+        "BMI",  "AND",  "HLT",  "RLA",  "NOP",  "AND",  "ROL_Memory",  "RLA",  "SEC",  "AND",  "NOP",      "RLA",  "NOP",      "AND",  "ROL_Memory",  "RLA", //3
+        "RTI",  "EOR",  "HLT",  "SRE",  "NOP",  "EOR",  "LSR_Memory",  "SRE",  "PHA",  "EOR",  "LSR_Acc",  "ASR",  "JMP_Abs",  "EOR",  "LSR_Memory",  "SRE", //4
+        "BVC",  "EOR",  "HLT",  "SRE",  "NOP",  "EOR",  "LSR_Memory",  "SRE",  "CLI",  "EOR",  "NOP",      "SRE",  "NOP",      "EOR",  "LSR_Memory",  "SRE", //5
+        "RTS",  "ADC",  "HLT",  "RRA",  "NOP",  "ADC",  "ROR_Memory",  "RRA",  "PLA",  "ADC",  "ROR_Acc",  "ARR",  "JMP_Ind",  "ADC",  "ROR_Memory",  "RRA", //6
+        "BVS",  "ADC",  "HLT",  "RRA",  "NOP",  "ADC",  "ROR_Memory",  "RRA",  "SEI",  "ADC",  "NOP",      "RRA",  "NOP",      "ADC",  "ROR_Memory",  "RRA", //7
+        "NOP",  "STA",  "NOP",  "SAX",  "STY",  "STA",  "STX",         "SAX",  "DEY",  "NOP",  "TXA",      "UNK",  "STY",      "STA",  "STX",         "SAX", //8
+        "BCC",  "STA",  "HLT",  "AXA",  "STY",  "STA",  "STX",         "SAX",  "TYA",  "STA",  "TXS",      "TAS",  "SYA",      "STA",  "SXA",         "AXA", //9
+        "LDY",  "LDA",  "LDX",  "LAX",  "LDY",  "LDA",  "LDX",         "LAX",  "TAY",  "LDA",  "TAX",      "ATX",  "LDY",      "LDA",  "LDX",         "LAX", //A
+        "BCS",  "LDA",  "HLT",  "LAX",  "LDY",  "LDA",  "LDX",         "LAX",  "CLV",  "LDA",  "TSX",      "LAS",  "LDY",      "LDA",  "LDX",         "LAX", //B
+        "CPY",  "CPA",  "NOP",  "DCP",  "CPY",  "CPA",  "DEC",         "DCP",  "INY",  "CPA",  "DEX",      "AXS",  "CPY",      "CPA",  "DEC",         "DCP", //C
+        "BNE",  "CPA",  "HLT",  "DCP",  "NOP",  "CPA",  "DEC",         "DCP",  "CLD",  "CPA",  "NOP",      "DCP",  "NOP",      "CPA",  "DEC",         "DCP", //D
+        "CPX",  "SBC",  "NOP",  "ISB",  "CPX",  "SBC",  "INC",         "ISB",  "INX",  "SBC",  "NOP",      "SBC",  "CPX",      "SBC",  "INC",         "ISB", //E
+        "BEQ",  "SBC",  "HLT",  "ISB",  "NOP",  "SBC",  "INC",         "ISB",  "SED",  "SBC",  "NOP",      "ISB",  "NOP",      "SBC",  "INC",         "ISB"  //F
+
 };
 // clang-format on

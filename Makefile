@@ -18,7 +18,7 @@ bin/nes: $(OBJS)
 $(OBJS): obj/%.o: src/%.c
 	$(CC) $(CFLAGS) -c -o $@ $< $(INCLUDES)
 
-test/bin/%: test/%.c
+test/bin/%: test/%.c $(LIB_OBJS)
 	$(CC) $(CFLAGS) $< $(LIB_OBJS) -o $@ -lcriterion
 
 test/bin:

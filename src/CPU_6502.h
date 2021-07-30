@@ -36,6 +36,7 @@ typedef struct cpu_state_ {
 
   uint64_t cycle_count;
   uint16_t operand;
+  uint8_t page_cross; // flag for when page is crossed
 } CPU_state;
 
 // maybe make this opaque type
@@ -73,13 +74,19 @@ typedef void *(*opcode_func_t)(CPU_6502 *, CPU_addr_mode);
 CPU_6502* CPU_init(CPU_6502 *cpu);
 CPU_state CPU_get_state(CPU_6502 *CPU);
 
+void CPU_print_state(CPU_6502 *cpu, FILE *fd);
+
 uint8_t CPU_get_status_flag(CPU_6502 *cpu, uint8_t flag);
+
+void CPU_load_to_memory(CPU_6502 *cpu, uint8_t *data, uint16_t size);
 
 // things that probably does not need to be public
 void CPU_exec(CPU_6502 *CPU);
 void CPU_exec_instruction(CPU_6502 *CPU, uint8_t op_code);
 opcode_func_t CPU_op_table[256];
 CPU_addr_mode CPU_addr_mode_table[256];
+
+char* CPU_op_names[256];
 
 typedef uint_fast8_t CPU_op_cycles_t;
 CPU_op_cycles_t CPU_op_cycles_table[256];
