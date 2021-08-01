@@ -25,6 +25,10 @@
 #define CPU_STATUS_OVERFLOW (1 << 6)
 #define CPU_STATUS_NEGATIVE (1 << 7)
 
+#define CPU_MEM_ADDR_SIZE 0x10000
+#define CPU_RAM_SIZE 2048
+#define CPU_VIDEO_RAM_SIZE 0x4000
+
 typedef struct cpu_state_ {
   // CPU registers                     = at power-up
   uint8_t A;   // accumulator          = 0
@@ -42,10 +46,9 @@ typedef struct cpu_state_ {
 // maybe make this opaque type
 typedef struct cpu_ {
   CPU_state state;
-  
-  uint8_t ram[2048];
-} CPU_6502;
 
+  uint8_t ram[CPU_RAM_SIZE];
+} CPU_6502;
 
 typedef enum addr {
   IMMIDIATE,
@@ -71,7 +74,7 @@ typedef enum addr {
 
 typedef void *(*opcode_func_t)(CPU_6502 *, CPU_addr_mode);
 
-CPU_6502* CPU_init(CPU_6502 *cpu);
+CPU_6502 *CPU_init(CPU_6502 *cpu);
 CPU_state CPU_get_state(CPU_6502 *CPU);
 
 void CPU_print_state(CPU_6502 *cpu, FILE *fd);
@@ -86,9 +89,12 @@ void CPU_exec_instruction(CPU_6502 *CPU, uint8_t op_code);
 opcode_func_t CPU_op_table[256];
 CPU_addr_mode CPU_addr_mode_table[256];
 
-char* CPU_op_names[256];
+char *CPU_op_names[256];
 
-typedef uint_fast8_t CPU_op_cycles_t;
+typedef struct op_cycles_t {
+  uint8_t cycles : 4;
+  uint8_t cross : 4;
+} CPU_op_cycles_t;
 CPU_op_cycles_t CPU_op_cycles_table[256];
 
 #endif // CPU_6502_H
