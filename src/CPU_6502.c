@@ -681,7 +681,7 @@ void *SLO(CPU_6502 *cpu, CPU_addr_mode mode) {
 
   CPU_set_register(cpu, &cpu->state.A, cpu->state.A | val);
 
-  CPU_write_memory(cpu->state.operand, val);
+  CPU_write_memory(cpu, cpu->state.operand, val);
   return "SLO";
 };
 
@@ -700,7 +700,7 @@ void *SRE(CPU_6502 *cpu, CPU_addr_mode mode) {
 
   CPU_set_register(cpu, &cpu->state.A, cpu->state.A ^ val);
 
-  CPU_write_memory(cpu->state.operand, val);
+  CPU_write_memory(cpu, cpu->state.operand, val);
 
   return "SRE";
 };
@@ -723,7 +723,7 @@ void *RLA(CPU_6502 *cpu, CPU_addr_mode mode) {
 
   CPU_set_register(cpu, &cpu->state.A, cpu->state.A & val);
 
-  CPU_write_memory(cpu->state.operand, val);
+  CPU_write_memory(cpu, cpu->state.operand, val);
 
   return "RLA";
 };
@@ -762,7 +762,7 @@ void *RRA(CPU_6502 *cpu, CPU_addr_mode mode) {
     CPU_set_status_flags(cpu, CPU_STATUS_CARRY);
   CPU_set_register(cpu, &cpu->state.A, res);
 
-  CPU_write_memory(cpu->state.operand, val);
+  CPU_write_memory(cpu, cpu->state.operand, val);
 
   return "RRA";
 };
@@ -792,7 +792,7 @@ void *DCP(CPU_6502 *cpu, CPU_addr_mode mode) {
   if (((cpu->state.A - val) & 0x80) == 0x80)
     CPU_set_status_flags(cpu, CPU_STATUS_NEGATIVE);
 
-  CPU_write_memory(cpu->state.operand, val);
+  CPU_write_memory(cpu, cpu->state.operand, val);
   return "DCP";
 };
 
@@ -815,13 +815,13 @@ void *ISB(CPU_6502 *cpu, CPU_addr_mode mode) {
     CPU_set_status_flags(cpu, CPU_STATUS_CARRY);
   CPU_set_register(cpu, &cpu->state.A, res);
 
-  CPU_write_memory(cpu->state.operand, val);
+  CPU_write_memory(cpu, cpu->state.operand, val);
   return "ISB";
 };
 
 void *AAC(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_set_register(cpu, &cpu->state.A,
-                   cpu->state.A & CPU_read_memory(cpu, cpu->state.operand););
+                   cpu->state.A & CPU_read_memory(cpu, cpu->state.operand));
   CPU_clear_status_flags(cpu, CPU_STATUS_CARRY);
   if (CPU_get_status_flag(cpu, CPU_STATUS_NEGATIVE))
     CPU_set_status_flags(cpu, CPU_STATUS_CARRY);
@@ -830,7 +830,7 @@ void *AAC(CPU_6502 *cpu, CPU_addr_mode mode) {
 
 void *ASR(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_clear_status_flags(cpu, CPU_STATUS_CARRY);
-  CPU_set_register(cpu,
+  CPU_set_register(cpu, &cpu->state.A,
                    cpu->state.A & CPU_read_memory(cpu, cpu->state.operand));
   if (cpu->state.A & 1)
     CPU_set_status_flags(cpu, CPU_STATUS_CARRY);
@@ -845,13 +845,13 @@ void *ARR(CPU_6502 *cpu, CPU_addr_mode mode) {
       ((cpu->state.A & CPU_read_memory(cpu, cpu->state.operand)) >> 1) |
           (CPU_get_status_flag(cpu, CPU_STATUS_CARRY) ? 0x80 : 0));
 
-  CPU_clear_status_flags(cpu, CPU_STATUS_CARRY, CPU_STATUS_OVERFLOW);
+  CPU_clear_status_flags(cpu, CPU_STATUS_CARRY | CPU_STATUS_OVERFLOW);
   if (cpu->state.A & 0x40)
     CPU_set_status_flags(cpu, CPU_STATUS_CARRY);
   if ((CPU_get_status_flag(cpu, CPU_STATUS_CARRY) ? 1 : 0) ^
-          ((cpu->state.A >> 5) & 1)
-              CPU_set_status_flags(cpu, CPU_STATUS_OVERFLOW);)
-    return "ARR";
+      ((cpu->state.A >> 5) & 1))
+    CPU_set_status_flags(cpu, CPU_STATUS_OVERFLOW);
+  return "ARR";
 };
 
 void *ATX(CPU_6502 *cpu, CPU_addr_mode mode) {
@@ -871,7 +871,7 @@ void *AXS(CPU_6502 *cpu, CPU_addr_mode mode) {
   if ((cpu->state.A & cpu->state.X) >= val)
     CPU_set_status_flags(cpu, CPU_STATUS_CARRY);
 
-  CPU_set_register(cpu, &cpu->state.X, val);
+  CPU_set_register(cpu, &cpu->state.X, ax);
   return "AXS";
 };
 
@@ -900,7 +900,7 @@ void *HLT(CPU_6502 *cpu, CPU_addr_mode mode) {
 
 void *AXA(CPU_6502 *cpu, CPU_addr_mode mode) {
   uint16_t adr = cpu->state.operand;
-  CPU_write_memory(cpu, ((adr >> 8) + 1) & cpu->state.A & cpu->state.X);
+  CPU_write_memory(cpu, adr, ((adr >> 8) + 1) & cpu->state.A & cpu->state.X);
   return "AXA";
 };
 
@@ -924,9 +924,7 @@ void *LAS(CPU_6502 *cpu, CPU_addr_mode mode) {
   return "LAS";
 };
 
-void *BRK(CPU_6502 *cpu, CPU_addr_mode mode) {
-    return "BRK";
-};
+void *BRK(CPU_6502 *cpu, CPU_addr_mode mode) { return "BRK"; };
 
 void *ASL_Acc(CPU_6502 *cpu, CPU_addr_mode mode) { return "ASL_Acc"; };
 void *ROL_Acc(CPU_6502 *cpu, CPU_addr_mode mode) { return "ROL_Acc"; };
