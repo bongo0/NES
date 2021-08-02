@@ -296,9 +296,13 @@ uint16_t CPU_get_operand(CPU_6502 *cpu) {
 void CPU_branch_relative(CPU_6502 *cpu, uint8_t b) {
   int8_t jmp_offset = (int8_t)CPU_get_operand(cpu);
   if (b) {
-    cpu->state.PC += jmp_offset;
+
+    // TODO irq stuff
 
     // page cross ...
+    cpu->state.page_cross = is_page_crossed(cpu->state.PC, jmp_offset);
+
+    cpu->state.PC += jmp_offset;
   }
 };
 
@@ -924,18 +928,188 @@ void *LAS(CPU_6502 *cpu, CPU_addr_mode mode) {
   return "LAS";
 };
 
-void *BRK(CPU_6502 *cpu, CPU_addr_mode mode) { return "BRK"; };
+void *JMP_Abs(CPU_6502 *cpu, CPU_addr_mode mode) {
+  cpu->state.PC = cpu->state.operand;
+  return "JMP_Abs";
+};
 
-void *ASL_Acc(CPU_6502 *cpu, CPU_addr_mode mode) { return "ASL_Acc"; };
-void *ROL_Acc(CPU_6502 *cpu, CPU_addr_mode mode) { return "ROL_Acc"; };
-void *LSR_Acc(CPU_6502 *cpu, CPU_addr_mode mode) { return "LSR_Acc"; };
-void *ROR_Acc(CPU_6502 *cpu, CPU_addr_mode mode) { return "ROR_Acc"; };
-void *JMP_Abs(CPU_6502 *cpu, CPU_addr_mode mode) { return "JMP_Abs"; };
-void *JMP_Ind(CPU_6502 *cpu, CPU_addr_mode mode) { return "JMP_Ind"; };
-void *ASL_Memory(CPU_6502 *cpu, CPU_addr_mode mode) { return "ASL_Memory"; };
-void *ROL_Memory(CPU_6502 *cpu, CPU_addr_mode mode) { return "ROL_Memory"; };
-void *LSR_Memory(CPU_6502 *cpu, CPU_addr_mode mode) { return "LSR_Memory"; };
-void *ROR_Memory(CPU_6502 *cpu, CPU_addr_mode mode) { return "ROR_Memory"; };
+void *JMP_Ind(CPU_6502 *cpu, CPU_addr_mode mode) {
+  uint8_t adr = cpu->state.operand;
+  if ((adr & 0xff)) {
+    uint8_t low = CPU_read_memory(cpu, adr);
+    uint8_t high = CPU_read_memory(cpu, adr - 0xff);
+    adr = low | (high << 8);
+  } else {
+    uint8_t low = CPU_read_memory(cpu, adr);
+    uint8_t high = CPU_read_memory(cpu, adr + 1);
+    adr = low | (high << 8);
+  }
+  cpu->state.SP = adr;
+  return "JMP_Ind";
+};
+
+void *ASL_Acc(CPU_6502 *cpu, CPU_addr_mode mode) {
+  CPU_clear_status_flags(cpu, CPU_STATUS_CARRY | CPU_STATUS_NEGATIVE |
+                                  CPU_STATUS_ZERO);
+  if (cpu->state.A & 0x80)
+    CPU_set_status_flags(cpu, CPU_STATUS_CARRY);
+  uint8_t res = cpu->state.A << 1;
+
+  if (res == 0)
+    CPU_set_status_flags(cpu, CPU_STATUS_ZERO);
+  else if (res & 0x80)
+    CPU_set_status_flags(cpu, CPU_STATUS_NEGATIVE);
+
+  CPU_set_register(cpu, &cpu->state.A, res);
+
+  return "ASL_Acc";
+};
+
+void *ASL_Memory(CPU_6502 *cpu, CPU_addr_mode mode) {
+  uint16_t adr = cpu->state.operand;
+  uint8_t val = CPU_read_memory(cpu, adr);
+
+  CPU_clear_status_flags(cpu, CPU_STATUS_CARRY | CPU_STATUS_NEGATIVE |
+                                  CPU_STATUS_ZERO);
+  if (val & 0x80)
+    CPU_set_status_flags(cpu, CPU_STATUS_CARRY);
+  uint8_t res = val << 1;
+
+  if (res == 0)
+    CPU_set_status_flags(cpu, CPU_STATUS_ZERO);
+  else if (res & 0x80)
+    CPU_set_status_flags(cpu, CPU_STATUS_NEGATIVE);
+
+  CPU_write_memory(cpu, adr, res);
+  return "ASL_Memory";
+};
+
+void *ROR_Acc(CPU_6502 *cpu, CPU_addr_mode mode) {
+  uint8_t carry = CPU_get_status_flag(cpu, CPU_STATUS_CARRY);
+  CPU_clear_status_flags(cpu, CPU_STATUS_CARRY | CPU_STATUS_NEGATIVE |
+                                  CPU_STATUS_ZERO);
+  if (cpu->state.A & 1)
+    CPU_set_status_flags(cpu, CPU_STATUS_CARRY);
+  uint8_t res = (cpu->state.A >> 1 | (carry ? 0x80 : 0));
+  if (res == 0)
+    CPU_set_status_flags(cpu, CPU_STATUS_ZERO);
+  else if (res & 0x80)
+    CPU_set_status_flags(cpu, CPU_STATUS_NEGATIVE);
+  CPU_set_register(cpu, &cpu->state.A, res);
+  return "ROR_Acc";
+};
+
+void *ROR_Memory(CPU_6502 *cpu, CPU_addr_mode mode) {
+  uint16_t adr = cpu->state.operand;
+  uint8_t val = CPU_read_memory(cpu, adr);
+
+  uint8_t carry = CPU_get_status_flag(cpu, CPU_STATUS_CARRY);
+  CPU_clear_status_flags(cpu, CPU_STATUS_CARRY | CPU_STATUS_NEGATIVE |
+                                  CPU_STATUS_ZERO);
+  if (val & 1)
+    CPU_set_status_flags(cpu, CPU_STATUS_CARRY);
+  uint8_t res = (val >> 1 | (carry ? 0x80 : 0));
+  if (res == 0)
+    CPU_set_status_flags(cpu, CPU_STATUS_ZERO);
+  else if (res & 0x80)
+    CPU_set_status_flags(cpu, CPU_STATUS_NEGATIVE);
+
+  CPU_write_memory(cpu, adr, res);
+  return "ROR_Memory";
+};
+
+void *ROL_Acc(CPU_6502 *cpu, CPU_addr_mode mode) {
+  uint8_t carry = CPU_get_status_flag(cpu, CPU_STATUS_CARRY);
+  CPU_clear_status_flags(cpu, CPU_STATUS_CARRY | CPU_STATUS_NEGATIVE |
+                                  CPU_STATUS_ZERO);
+  if (cpu->state.A & 0x80)
+    CPU_set_status_flags(cpu, CPU_STATUS_CARRY);
+  uint8_t res = (cpu->state.A << 1 | (carry ? 1 : 0));
+  if (res == 0)
+    CPU_set_status_flags(cpu, CPU_STATUS_ZERO);
+  else if (res & 0x80)
+    CPU_set_status_flags(cpu, CPU_STATUS_NEGATIVE);
+
+  CPU_set_register(cpu, &cpu->state.A, res);
+  return "ROL_Acc";
+};
+
+void *ROL_Memory(CPU_6502 *cpu, CPU_addr_mode mode) {
+  uint16_t adr = cpu->state.operand;
+  uint8_t val = CPU_read_memory(cpu, adr);
+
+  uint8_t carry = CPU_get_status_flag(cpu, CPU_STATUS_CARRY);
+  CPU_clear_status_flags(cpu, CPU_STATUS_CARRY | CPU_STATUS_NEGATIVE |
+                                  CPU_STATUS_ZERO);
+  if (val & 0x80)
+    CPU_set_status_flags(cpu, CPU_STATUS_CARRY);
+  uint8_t res = (val << 1 | (carry ? 1 : 0));
+  if (res == 0)
+    CPU_set_status_flags(cpu, CPU_STATUS_ZERO);
+  else if (res & 0x80)
+    CPU_set_status_flags(cpu, CPU_STATUS_NEGATIVE);
+
+  CPU_write_memory(cpu, adr, res);
+  return "ROL_Memory";
+};
+
+void *LSR_Acc(CPU_6502 *cpu, CPU_addr_mode mode) {
+  CPU_clear_status_flags(cpu, CPU_STATUS_CARRY | CPU_STATUS_NEGATIVE |
+                                  CPU_STATUS_ZERO);
+  if (cpu->state.A & 1)
+    CPU_set_status_flags(cpu, CPU_STATUS_CARRY);
+  uint8_t res = cpu->state.A >> 1;
+  if (res == 0)
+    CPU_set_status_flags(cpu, CPU_STATUS_ZERO);
+  else if (res & 0x80)
+    CPU_set_status_flags(cpu, CPU_STATUS_NEGATIVE);
+
+  CPU_set_register(cpu, &cpu->state.A, res);
+  return "LSR_Acc";
+};
+
+void *LSR_Memory(CPU_6502 *cpu, CPU_addr_mode mode) {
+  uint16_t adr = cpu->state.operand;
+  uint8_t val = CPU_read_memory(cpu, adr);
+
+  if (val & 1)
+    CPU_set_status_flags(cpu, CPU_STATUS_CARRY);
+  uint8_t res = val >> 1;
+  if (res == 0)
+    CPU_set_status_flags(cpu, CPU_STATUS_ZERO);
+  else if (res & 0x80)
+    CPU_set_status_flags(cpu, CPU_STATUS_NEGATIVE);
+
+  CPU_write_memory(cpu, adr, res);
+
+  return "LSR_Memory";
+};
+
+void *BRK(CPU_6502 *cpu, CPU_addr_mode mode) {
+  uint16_t pc = cpu->state.PC + 1;
+  CPU_stack_push(cpu, (uint8_t)(pc >> 8));
+  CPU_stack_push(cpu, (uint8_t)pc);
+
+  uint8_t flag = cpu->state.P | CPU_STATUS_BREAK | CPU_STATUS_RESERVED;
+
+  if (cpu->state.need_nmi) {
+    cpu->state.need_nmi = 0;
+    CPU_stack_push(cpu, flag);
+    CPU_set_status_flags(cpu, CPU_STATUS_INTERUPT_DISABLE);
+    uint8_t low = CPU_read_memory(cpu, CPU_NMI_VECTOR);
+    uint8_t high = CPU_read_memory(cpu, CPU_NMI_VECTOR + 1);
+    cpu->state.PC = low | (high << 8);
+  } else {
+    CPU_stack_push(cpu, flag);
+    CPU_set_status_flags(cpu, CPU_STATUS_INTERUPT_DISABLE);
+    uint8_t low = CPU_read_memory(cpu, CPU_IRQ_VECTOR);
+    uint8_t high = CPU_read_memory(cpu, CPU_IRQ_VECTOR + 1);
+    cpu->state.PC = low | (high << 8);
+  }
+
+  cpu->state.last_need_nmi = 0; // weird stuff ??
+  return "BRK";
+};
 
 // Look up tables
 // clang-format off

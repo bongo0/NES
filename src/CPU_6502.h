@@ -29,6 +29,14 @@
 #define CPU_RAM_SIZE 2048
 #define CPU_VIDEO_RAM_SIZE 0x4000
 
+#define CPU_NMI_VECTOR 0xFFFA
+#define CPU_RESET_VECTOR 0xFFFC
+#define CPU_IRQ_VECTOR 0xFFFE
+
+#define CPU_CLOCK_NTSC 1789773
+#define CPU_CLOCK_PAL 1662607
+#define CPU_CLOCK_DENDY 1773448
+
 typedef struct cpu_state_ {
   // CPU registers                     = at power-up
   uint8_t A;   // accumulator          = 0
@@ -41,6 +49,9 @@ typedef struct cpu_state_ {
   uint64_t cycle_count;
   uint16_t operand;
   uint8_t page_cross; // flag for when page is crossed
+
+  uint8_t need_nmi;
+  uint8_t last_need_nmi;
 } CPU_state;
 
 // maybe make this opaque type
