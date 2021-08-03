@@ -26,7 +26,13 @@
 #define CPU_STATUS_NEGATIVE (1 << 7)
 
 #define CPU_MEM_ADDR_SIZE 0x10000
+
+#if 0
 #define CPU_RAM_SIZE 2048
+#else
+#define CPU_RAM_SIZE (1<<16)
+#endif
+
 #define CPU_VIDEO_RAM_SIZE 0x4000
 
 #define CPU_NMI_VECTOR 0xFFFA
@@ -52,6 +58,8 @@ typedef struct cpu_state_ {
 
   uint8_t need_nmi;
   uint8_t last_need_nmi;
+  uint8_t last_op; // for logging
+  uint64_t cycles_accumulated;
 } CPU_state;
 
 // maybe make this opaque type
@@ -88,7 +96,9 @@ typedef void *(*opcode_func_t)(CPU_6502 *, CPU_addr_mode);
 CPU_6502 *CPU_init(CPU_6502 *cpu);
 CPU_state CPU_get_state(CPU_6502 *CPU);
 
-void CPU_print_state(CPU_6502 *cpu, FILE *fd);
+void CPU_print_state_(CPU_6502 *cpu, FILE *fd);
+void CPU_log_state_simple(CPU_6502 *cpu, FILE *fd, uint16_t last_pc,
+                          uint8_t last_op);
 
 uint8_t CPU_get_status_flag(CPU_6502 *cpu, uint8_t flag);
 

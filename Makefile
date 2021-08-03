@@ -1,7 +1,8 @@
 CC=gcc
-CFLAGS = -std=c11 -Wall #$(shell pkg-config)
+CFLAGS = -std=c11 -Wall -g#$(shell pkg-config)
 
-INCLUDES =
+INCLUDES := 
+HEADERS := $(wildcard src/*.h src/*/*.h)
 SOURCES := $(wildcard src/*.c src/*/*.c)
 OBJS := $(SOURCES:src/%.c=obj/%.o)
 
@@ -15,7 +16,7 @@ bin/nes: $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(INCLUDES)
 
 
-$(OBJS): obj/%.o: src/%.c
+$(OBJS): obj/%.o: src/%.c $(HEADERS)
 	$(CC) $(CFLAGS) -c -o $@ $< $(INCLUDES)
 
 test/bin/%: test/%.c $(LIB_OBJS)

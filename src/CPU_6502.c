@@ -18,6 +18,8 @@ CPU_6502 *CPU_init(CPU_6502 *cpu) {
   cpu->state.cycle_count = 0;
   cpu->state.page_cross = 0;
   cpu->state.operand = 0;
+
+  cpu->state.cycles_accumulated = 0;
   return cpu;
 };
 
@@ -33,7 +35,7 @@ void CPU_clear_status_flags(CPU_6502 *cpu, uint8_t flags) {
   cpu->state.P &= ~flags;
 };
 
-void CPU_print_state(CPU_6502 *cpu, FILE *fd) {
+void CPU_print_state_(CPU_6502 *cpu, FILE *fd) {
   uint8_t op = CPU_get_op(cpu); // get current op
   char *mode;
   switch (CPU_addr_mode_table[op]) {
@@ -75,6 +77,21 @@ void CPU_print_state(CPU_6502 *cpu, FILE *fd) {
       cpu->state.PC, cpu->state.SP, cpu->state.P);
 }
 
+void CPU_log_state_simple(CPU_6502 *cpu, FILE *fd, uint16_t last_PC,
+                          uint8_t last_op) {
+  fprintf(fd, "%04x  %02x  ", last_PC, last_op);
+  if (cpu->state.operand > 0xff)
+    fprintf(fd, "%02x %02x  ", (uint8_t)cpu->state.operand,
+            cpu->state.operand >> 8);
+  else
+    fprintf(fd, "%02x     ", cpu->state.operand);
+  fprintf(fd, "%s  ", CPU_op_names[last_op]);
+
+  fprintf(fd, "A:%02x X:%02x Y:%02x P:%02x SP:%02x CYC:%lu\n", cpu->state.A,
+          cpu->state.X, cpu->state.Y, cpu->state.P, cpu->state.SP,
+          cpu->state.cycles_accumulated);
+}
+
 uint8_t is_page_crossed(uint16_t adr, uint8_t reg) {
   // is this correct ???
   return ((adr + reg) & 0xFF00) != (adr & 0xFF00);
@@ -112,25 +129,27 @@ uint8_t CPU_get_op(CPU_6502 *CPU) {
 void CPU_exec(CPU_6502 *cpu) {
   cpu->state.page_cross = 0;
 
+  uint16_t last_PC = cpu->state.PC;
   uint8_t op = CPU_get_op(cpu);
   CPU_op_cycles_t ct = CPU_op_cycles_table[op];
-  CPU_get_operand(cpu);
+  cpu->state.operand = CPU_get_operand(cpu);
   CPU_exec_instruction(cpu, op);
 
   // cycles
   for (uint8_t i = 0; i < ct.cycles; ++i) {
     // cycle
-    printf("cycle %d ", i);
+    cpu->state.cycles_accumulated++;
   }
   if (ct.cross && cpu->state.page_cross) {
     // cycle
-    printf("cycle page cross");
+    cpu->state.cycles_accumulated++;
   }
-  printf("\n");
+  // printf("\n");
+  CPU_log_state_simple(cpu, stdout, last_PC, op);
 };
 
 inline void CPU_exec_instruction(CPU_6502 *CPU, uint8_t op_code) {
-  char *tmp = CPU_op_table[op_code](CPU, CPU_addr_mode_table[op_code]);
+  CPU_op_table[op_code](CPU, CPU_addr_mode_table[op_code]);
 
   // printf("0x%02x == %s  mode: ", op_code, tmp);
   // printf("\n");
@@ -898,7 +917,7 @@ void *SXA(CPU_6502 *cpu, CPU_addr_mode mode) {
 };
 
 void *HLT(CPU_6502 *cpu, CPU_addr_mode mode) {
-  uint8_t val = CPU_read_memory(cpu, cpu->state.operand);
+  CPU_read_memory(cpu, cpu->state.operand);
   return "HLT";
 };
 
@@ -909,7 +928,7 @@ void *AXA(CPU_6502 *cpu, CPU_addr_mode mode) {
 };
 
 void *UNK(CPU_6502 *cpu, CPU_addr_mode mode) {
-  uint8_t val = CPU_read_memory(cpu, cpu->state.operand);
+  CPU_read_memory(cpu, cpu->state.operand);
   return "UNK";
 };
 
