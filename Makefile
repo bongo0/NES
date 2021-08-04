@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS = -std=c11 -Wall -g#$(shell pkg-config)
+CFLAGS = -std=c11 -Wall -pedantic -g $(shell pkg-config sdl2 --cflags --libs)
 
 INCLUDES := 
 HEADERS := $(wildcard src/*.h src/*/*.h)

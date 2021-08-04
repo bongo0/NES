@@ -196,7 +196,7 @@ void ROM_load_from_disc(char *file_name, NES_ROM *rom) {
       case 1: rom->system_type = VS_SYSTEM; break;
       case 2: rom->system_type = PLAY_CHOISE; break;
       default:
-        LOG_WARNING("Unknown system type, using NTSC");
+        LOG_WARNING("Unknown system type, using NTSC: %s\n",file_name);
         rom->system_type = NTSC;
         break;
       }
@@ -256,7 +256,7 @@ void ROM_load_from_disc(char *file_name, NES_ROM *rom) {
     switch (rom->data[13] & 0x0f) {
     case 0: rom->ppu_model = PPU_2C03;
     case 1:
-      LOG_WARNING("Unsupported PPU model 2C03");
+      LOG_WARNING("Unsupported PPU model 2C03: %s\n",file_name);
       rom->ppu_model = PPU_2C03;
       break;
     case 2: rom->ppu_model = PPU_2C04A; break;
@@ -314,11 +314,11 @@ void ROM_load_from_disc(char *file_name, NES_ROM *rom) {
   if ((rom->PRG_size + rom->CHR_size + (rom->has_trainer ? 512 : 0)) +
           NES_ROM_HEADER_SIZE >
       size) {
-    LOG_ERROR("corrupted ROM file, larger than header tells\n");
+    LOG_ERROR("corrupted ROM file, larger than header tells: %s\n",file_name);
   } else if ((rom->PRG_size + rom->CHR_size + (rom->has_trainer ? 512 : 0)) +
                  NES_ROM_HEADER_SIZE <
              size) {
-    LOG_ERROR("corrupted ROM file, smaller than header tells\n");
+    LOG_ERROR("corrupted ROM file, smaller than header tells: %s\n",file_name);
   }
 
   // logging stuff

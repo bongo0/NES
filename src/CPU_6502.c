@@ -21,11 +21,11 @@ CPU_6502 *CPU_init(CPU_6502 *cpu) {
 
   cpu->state.cycles_accumulated = 0;
   return cpu;
-};
+}
 
 uint8_t CPU_get_status_flag(CPU_6502 *cpu, uint8_t flag) {
   return (cpu->state.P & flag);
-};
+}
 
 void CPU_set_status_flags(CPU_6502 *cpu, uint8_t flags) {
   cpu->state.P |= flags;
@@ -33,7 +33,7 @@ void CPU_set_status_flags(CPU_6502 *cpu, uint8_t flags) {
 
 void CPU_clear_status_flags(CPU_6502 *cpu, uint8_t flags) {
   cpu->state.P &= ~flags;
-};
+}
 
 void CPU_print_state_(CPU_6502 *cpu, FILE *fd) {
   uint8_t op = CPU_get_op(cpu); // get current op
@@ -158,14 +158,14 @@ uint8_t is_page_crossed_signed(uint16_t adr, int8_t reg_signed) {
   return b;
 }
 
-CPU_state CPU_get_state(CPU_6502 *CPU) { return CPU->state; };
+CPU_state CPU_get_state(CPU_6502 *CPU) { return CPU->state; }
 
 void CPU_load_to_memory(CPU_6502 *cpu, uint8_t *data, uint16_t size,
                         uint16_t adr) {
   memcpy(&cpu->ram[adr], data, size);
-};
+}
 
-uint8_t CPU_read_memory(CPU_6502 *CPU, uint16_t adr) { return CPU->ram[adr]; };
+uint8_t CPU_read_memory(CPU_6502 *CPU, uint16_t adr) { return CPU->ram[adr]; }
 
 void CPU_write_memory(CPU_6502 *cpu, uint16_t adr, uint8_t val) {
   cpu->ram[adr] = val;
@@ -186,7 +186,7 @@ uint8_t CPU_stack_pop(CPU_6502 *cpu) {
 // does not change the state
 uint8_t CPU_get_op(CPU_6502 *CPU) {
   return CPU_read_memory(CPU, CPU->state.PC);
-};
+}
 
 void CPU_exec(CPU_6502 *cpu) {
   cpu->previous_state = cpu->state;
@@ -215,7 +215,7 @@ void CPU_exec(CPU_6502 *cpu) {
 #ifdef NESTEST_LOG_COMP
   CPU_log_state_simple(cpu, mycpu_log, last_PC, op);
 #endif
-};
+}
 
 inline void CPU_exec_instruction(CPU_6502 *cpu, uint8_t op_code) {
   cpu->state.branch_taken = 0;
@@ -223,7 +223,7 @@ inline void CPU_exec_instruction(CPU_6502 *cpu, uint8_t op_code) {
 
   // printf("0x%02x == %s  mode: ", op_code, tmp);
   // printf("\n");
-};
+}
 
 //#v	Immediate	Uses the 8-bit operand itself as the value for the
 // operation, rather than fetching a value from a memory address.
@@ -231,11 +231,11 @@ uint16_t CPU_get_immidiate(CPU_6502 *cpu) {
   uint16_t operand = CPU_read_memory(cpu, ++cpu->state.PC);
   cpu->state.operand = operand;
   return operand;
-};
+}
 
 // Implicit	Instructions like RTS or CLC have no address operand, the
 // destination of results are implied.
-uint16_t CPU_get_implicit(CPU_6502 *cpu) { return 0; };
+uint16_t CPU_get_implicit(CPU_6502 *cpu) { return 0; }
 
 // d	Zero page	Fetches the value from an 8-bit address on the zero
 // page.
@@ -243,7 +243,7 @@ uint16_t CPU_get_zeropage(CPU_6502 *cpu) {
   uint16_t operand = CPU_read_memory(cpu, ++cpu->state.PC);
   cpu->state.operand = operand;
   return operand;
-};
+}
 
 // d,x	Zero page indexed	val = PEEK((arg + X) % 256)	4
 uint16_t CPU_get_zeropage_idx_X(CPU_6502 *cpu) {
@@ -252,7 +252,7 @@ uint16_t CPU_get_zeropage_idx_X(CPU_6502 *cpu) {
   operand = (operand + cpu->state.X) % 256;
   cpu->state.operand = operand;
   return operand;
-};
+}
 
 // d,y	Zero page indexed	val = PEEK((arg + Y) % 256)	4
 uint16_t CPU_get_zeropage_idx_Y(CPU_6502 *cpu) {
@@ -261,7 +261,7 @@ uint16_t CPU_get_zeropage_idx_Y(CPU_6502 *cpu) {
   operand = (operand + cpu->state.Y) % 256;
   cpu->state.operand = operand;
   return operand;
-};
+}
 
 //(a)	Indirect	The JMP instruction has a special indirect addressing
 // mode that can jump to the address stored in a 16-bit pointer anywhere in
@@ -272,7 +272,7 @@ uint16_t CPU_get_indirect(CPU_6502 *cpu) {
   uint16_t operand = low | (high << 8);
   cpu->state.operand = operand;
   return operand;
-};
+}
 
 //(d,x)	Indexed indirect	val = PEEK(PEEK((arg + X) % 256) + PEEK((arg +
 // X
@@ -292,7 +292,7 @@ uint16_t CPU_get_indirect_idx_X(CPU_6502 *cpu) {
 
   cpu->state.operand = operand;
   return operand;
-};
+}
 
 //(d),y	Indirect indexed	val = PEEK(PEEK(arg) + PEEK((arg + 1) % 256)
 //* 256 + Y)	5+ (+ means add a cycle for write instructions or for page
@@ -311,7 +311,7 @@ uint16_t CPU_get_indirect_idx_Y(CPU_6502 *cpu) {
   operand += cpu->state.Y;
   cpu->state.operand = operand;
   return operand;
-};
+}
 
 // a	Absolute	Fetches the value from a 16-bit address anywhere in
 // memory.
@@ -325,7 +325,7 @@ uint16_t CPU_get_absolute(CPU_6502 *cpu) {
   uint16_t operand = low | (high << 8);
   cpu->state.operand = operand;
   return operand;
-};
+}
 
 // a,x	Absolute indexed	val = PEEK(arg + X)	4+ (+ means add a cycle
 // for write instructions or for page wrapping on read instructions)
@@ -337,7 +337,7 @@ uint16_t CPU_get_absolute_idx_X(CPU_6502 *cpu) {
 
   cpu->state.operand = operand;
   return operand;
-};
+}
 
 // a,y	Absolute indexed	val = PEEK(arg + Y)	4+ (+ means add a cycle
 // for write instructions or for page wrapping on read instructions)
@@ -349,17 +349,17 @@ uint16_t CPU_get_absolute_idx_Y(CPU_6502 *cpu) {
 
   cpu->state.operand = operand;
   return operand;
-};
+}
 
 // A	Accumulator	Many instructions can operate on the accumulator, e.g.
 // LSR A. Some assemblers will treat no operand as an implicit A where
 // applicable.
-uint16_t CPU_get_accumulate(CPU_6502 *cpu) { return 0; };
+uint16_t CPU_get_accumulate(CPU_6502 *cpu) { return 0; }
 
 // label	Relative	Branch instructions (e.g. BEQ, BCS) have a
 // relative addressing mode that specifies an 8-bit signed offset relative to
 // the current PC.
-uint16_t CPU_get_relative(CPU_6502 *cpu) { return CPU_get_immidiate(cpu); };
+uint16_t CPU_get_relative(CPU_6502 *cpu) { return CPU_get_immidiate(cpu); }
 
 uint16_t CPU_get_operand(CPU_6502 *cpu) {
   CPU_addr_mode mode = CPU_addr_mode_table[CPU_get_op(cpu)];
@@ -386,7 +386,7 @@ uint16_t CPU_get_operand(CPU_6502 *cpu) {
   default: return 0;
   }
   return 0;
-};
+}
 
 uint8_t CPU_get_operand_val(CPU_6502 *cpu, CPU_addr_mode mode) {
   switch (mode) {
@@ -413,7 +413,7 @@ void CPU_branch_relative(CPU_6502 *cpu, uint8_t b) {
 
     cpu->state.PC += jmp_offset;
   }
-};
+}
 
 void CPU_set_register(CPU_6502 *cpu, uint8_t *reg, uint8_t val) {
   CPU_clear_status_flags(cpu, CPU_STATUS_ZERO | CPU_STATUS_NEGATIVE);
@@ -423,173 +423,173 @@ void CPU_set_register(CPU_6502 *cpu, uint8_t *reg, uint8_t val) {
     CPU_set_status_flags(cpu, CPU_STATUS_NEGATIVE);
   }
   *reg = val;
-};
+}
 //######################################################
 //    INSTRUCTIONS
-// void* (CPU_6502 *cpu, CPU_addr_mode mode){return "";};
+// void* (CPU_6502 *cpu, CPU_addr_mode mode){return "";}
 
 void *BPL(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_branch_relative(cpu, !CPU_get_status_flag(cpu, CPU_STATUS_NEGATIVE));
   return "BPL";
-};
+}
 
 void *BMI(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_branch_relative(cpu, CPU_get_status_flag(cpu, CPU_STATUS_NEGATIVE));
   return "BMI";
-};
+}
 
 void *BCC(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_branch_relative(cpu, !CPU_get_status_flag(cpu, CPU_STATUS_CARRY));
   return "BCC";
-};
+}
 
 void *BCS(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_branch_relative(cpu, CPU_get_status_flag(cpu, CPU_STATUS_CARRY));
   return "BCS";
-};
+}
 
 void *BVC(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_branch_relative(cpu, !CPU_get_status_flag(cpu, CPU_STATUS_OVERFLOW));
   return "BVC";
-};
+}
 
 void *BVS(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_branch_relative(cpu, CPU_get_status_flag(cpu, CPU_STATUS_OVERFLOW));
   return "BVS";
-};
+}
 
 void *BNE(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_branch_relative(cpu, !CPU_get_status_flag(cpu, CPU_STATUS_ZERO));
   return "BNE";
-};
+}
 
 void *BEQ(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_branch_relative(cpu, CPU_get_status_flag(cpu, CPU_STATUS_ZERO));
   return "BEQ";
-};
+}
 
 void *LDY(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_set_register(cpu, &cpu->state.Y, CPU_get_operand_val(cpu, mode));
   return "LDY";
-};
+}
 
 void *LDA(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_set_register(cpu, &cpu->state.A, CPU_get_operand_val(cpu, mode));
   return "LDA";
-};
+}
 
 void *LDX(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_set_register(cpu, &cpu->state.X, CPU_get_operand_val(cpu, mode));
   return "LDX";
-};
+}
 
 void *CLC(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_clear_status_flags(cpu, CPU_STATUS_CARRY);
   return "CLC";
-};
+}
 
 void *CLI(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_clear_status_flags(cpu, CPU_STATUS_INTERUPT_DISABLE);
   return "CLI";
-};
+}
 
 void *CLV(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_clear_status_flags(cpu, CPU_STATUS_OVERFLOW);
   return "CLV";
-};
+}
 
 void *CLD(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_clear_status_flags(cpu, CPU_STATUS_DECIMAL);
   return "CLD";
-};
+}
 
 void *SEC(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_set_status_flags(cpu, CPU_STATUS_CARRY);
   return "SEC";
-};
+}
 
 void *SEI(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_set_status_flags(cpu, CPU_STATUS_INTERUPT_DISABLE);
   return "SEI";
-};
+}
 
 void *SED(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_set_status_flags(cpu, CPU_STATUS_DECIMAL);
   return "SED";
-};
+}
 
 void *NOP(CPU_6502 *cpu, CPU_addr_mode mode) {
   // TODO check cycles
   return "NOP";
-};
+}
 
 void *INY(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_set_register(cpu, &cpu->state.Y, cpu->state.Y + 1);
   return "INY";
-};
+}
 
 void *INX(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_set_register(cpu, &cpu->state.X, cpu->state.X + 1);
   return "INX";
-};
+}
 
 void *DEX(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_set_register(cpu, &cpu->state.X, cpu->state.X - 1);
   return "DEX";
-};
+}
 
 void *DEY(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_set_register(cpu, &cpu->state.Y, cpu->state.Y - 1);
   return "DEY";
-};
+}
 
 void *TAY(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_set_register(cpu, &cpu->state.Y, cpu->state.A);
   return "TAY";
-};
+}
 
 void *TAX(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_set_register(cpu, &cpu->state.X, cpu->state.A);
   return "TAX";
-};
+}
 
 void *TSX(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_set_register(cpu, &cpu->state.X, cpu->state.SP);
   return "TSX";
-};
+}
 
 void *TXA(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_set_register(cpu, &cpu->state.A, cpu->state.X);
   return "TXA";
-};
+}
 
 void *TYA(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_set_register(cpu, &cpu->state.A, cpu->state.Y);
   return "TYA";
-};
+}
 
 void *TXS(CPU_6502 *cpu, CPU_addr_mode mode) {
   cpu->state.SP = cpu->state.X;
   return "TXS";
-};
+}
 
 void *AND(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_set_register(cpu, &cpu->state.A,
                    cpu->state.A & CPU_get_operand_val(cpu, mode));
   return "AND";
-};
+}
 
 void *EOR(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_set_register(cpu, &cpu->state.A,
                    cpu->state.A ^ CPU_get_operand_val(cpu, mode));
   return "EOR";
-};
+}
 
 void *ORA(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_set_register(cpu, &cpu->state.A,
                    cpu->state.A | CPU_get_operand_val(cpu, mode));
   return "ORA";
-};
+}
 
 void *ADC(CPU_6502 *cpu, CPU_addr_mode mode) {
   uint8_t val = CPU_get_operand_val(cpu, mode);
@@ -608,7 +608,7 @@ void *ADC(CPU_6502 *cpu, CPU_addr_mode mode) {
     CPU_set_status_flags(cpu, CPU_STATUS_CARRY);
   CPU_set_register(cpu, &cpu->state.A, (uint8_t)res);
   return "ADC";
-};
+}
 
 void *SBC(CPU_6502 *cpu, CPU_addr_mode mode) {
   uint8_t val = CPU_get_operand_val(cpu, mode) ^ 0xff;
@@ -627,7 +627,7 @@ void *SBC(CPU_6502 *cpu, CPU_addr_mode mode) {
     CPU_set_status_flags(cpu, CPU_STATUS_CARRY);
   CPU_set_register(cpu, &cpu->state.A, (uint8_t)res);
   return "SBC";
-};
+}
 
 void *CPX(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_clear_status_flags(cpu, CPU_STATUS_CARRY | CPU_STATUS_NEGATIVE |
@@ -641,7 +641,7 @@ void *CPX(CPU_6502 *cpu, CPU_addr_mode mode) {
     CPU_set_status_flags(cpu, CPU_STATUS_NEGATIVE);
 
   return "CPX";
-};
+}
 
 void *CPA(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_clear_status_flags(cpu, CPU_STATUS_CARRY | CPU_STATUS_NEGATIVE |
@@ -655,7 +655,7 @@ void *CPA(CPU_6502 *cpu, CPU_addr_mode mode) {
     CPU_set_status_flags(cpu, CPU_STATUS_NEGATIVE);
 
   return "CPA";
-};
+}
 
 void *CPY(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_clear_status_flags(cpu, CPU_STATUS_CARRY | CPU_STATUS_NEGATIVE |
@@ -669,7 +669,7 @@ void *CPY(CPU_6502 *cpu, CPU_addr_mode mode) {
     CPU_set_status_flags(cpu, CPU_STATUS_NEGATIVE);
 
   return "CPY";
-};
+}
 
 void *INC(CPU_6502 *cpu, CPU_addr_mode mode) {
   uint16_t adr = cpu->state.operand;
@@ -684,7 +684,7 @@ void *INC(CPU_6502 *cpu, CPU_addr_mode mode) {
 
   CPU_write_memory(cpu, adr, val);
   return "INC";
-};
+}
 
 void *DEC(CPU_6502 *cpu, CPU_addr_mode mode) {
   uint16_t adr = cpu->state.operand;
@@ -699,7 +699,7 @@ void *DEC(CPU_6502 *cpu, CPU_addr_mode mode) {
 
   CPU_write_memory(cpu, adr, val);
   return "DEC";
-};
+}
 
 void *BIT(CPU_6502 *cpu, CPU_addr_mode mode) {
   uint8_t val = CPU_read_memory(cpu, cpu->state.operand);
@@ -712,44 +712,44 @@ void *BIT(CPU_6502 *cpu, CPU_addr_mode mode) {
   if (val & 0x80)
     CPU_set_status_flags(cpu, CPU_STATUS_NEGATIVE);
   return "BIT";
-};
+}
 
 void *STA(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_write_memory(cpu, cpu->state.operand, cpu->state.A);
   return "STA";
-};
+}
 
 void *STX(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_write_memory(cpu, cpu->state.operand, cpu->state.X);
   return "STX";
-};
+}
 
 void *STY(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_write_memory(cpu, cpu->state.operand, cpu->state.Y);
   return "STY";
-};
+}
 
 void *PHA(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_stack_push(cpu, cpu->state.A);
   return "PHA";
-};
+}
 
 void *PLA(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_set_register(cpu, &cpu->state.A, CPU_stack_pop(cpu));
   return "PLA";
-};
+}
 
 void *PLP(CPU_6502 *cpu, CPU_addr_mode mode) {
   cpu->state.P = CPU_stack_pop(cpu) & 0xcf; // or 0xef??
   cpu->state.P |= CPU_STATUS_RESERVED; // always set -- not important -- for
                                        // easy comparing with nestest.log
   return "PLP";
-};
+}
 
 void *PHP(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_stack_push(cpu, cpu->state.P | CPU_STATUS_BREAK | CPU_STATUS_RESERVED);
   return "PHP";
-};
+}
 
 void *JSR(CPU_6502 *cpu, CPU_addr_mode mode) {
   uint16_t adr = cpu->state.operand;
@@ -761,7 +761,7 @@ void *JSR(CPU_6502 *cpu, CPU_addr_mode mode) {
 
   cpu->state.PC = adr;
   return "JSR";
-};
+}
 
 void *RTS(CPU_6502 *cpu, CPU_addr_mode mode) {
   uint8_t low = CPU_stack_pop(cpu);
@@ -770,7 +770,7 @@ void *RTS(CPU_6502 *cpu, CPU_addr_mode mode) {
 
   cpu->state.PC = adr + 1;
   return "RTS";
-};
+}
 
 void *RTI(CPU_6502 *cpu, CPU_addr_mode mode) {
 
@@ -783,7 +783,7 @@ void *RTI(CPU_6502 *cpu, CPU_addr_mode mode) {
 
   cpu->state.PC = adr;
   return "RTI";
-};
+}
 
 void *SLO(CPU_6502 *cpu, CPU_addr_mode mode) {
   uint8_t val = CPU_get_operand_val(cpu, mode);
@@ -802,7 +802,7 @@ void *SLO(CPU_6502 *cpu, CPU_addr_mode mode) {
 
   CPU_write_memory(cpu, cpu->state.operand, val);
   return "SLO";
-};
+}
 
 void *SRE(CPU_6502 *cpu, CPU_addr_mode mode) {
   uint8_t val = CPU_read_memory(cpu, cpu->state.operand);
@@ -822,7 +822,7 @@ void *SRE(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_write_memory(cpu, cpu->state.operand, val);
 
   return "SRE";
-};
+}
 
 void *RLA(CPU_6502 *cpu, CPU_addr_mode mode) {
   uint8_t val = CPU_read_memory(cpu, cpu->state.operand);
@@ -845,7 +845,7 @@ void *RLA(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_write_memory(cpu, cpu->state.operand, val);
 
   return "RLA";
-};
+}
 
 void *RRA(CPU_6502 *cpu, CPU_addr_mode mode) {
 
@@ -884,19 +884,19 @@ void *RRA(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_write_memory(cpu, cpu->state.operand, val);
 
   return "RRA";
-};
+}
 
 void *SAX(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_write_memory(cpu, cpu->state.operand, cpu->state.A & cpu->state.X);
   return "SAX";
-};
+}
 
 void *LAX(CPU_6502 *cpu, CPU_addr_mode mode) {
   uint8_t val = CPU_get_operand_val(cpu, mode);
   CPU_set_register(cpu, &cpu->state.A, val);
   CPU_set_register(cpu, &cpu->state.X, val);
   return "LAX";
-};
+}
 
 void *DCP(CPU_6502 *cpu, CPU_addr_mode mode) {
   uint8_t val = CPU_get_operand_val(cpu, mode);
@@ -915,7 +915,7 @@ void *DCP(CPU_6502 *cpu, CPU_addr_mode mode) {
 
   CPU_write_memory(cpu, cpu->state.operand, val);
   return "DCP";
-};
+}
 
 void *ISB(CPU_6502 *cpu, CPU_addr_mode mode) {
   uint8_t val = CPU_get_operand_val(cpu, mode);
@@ -939,7 +939,7 @@ void *ISB(CPU_6502 *cpu, CPU_addr_mode mode) {
 
   CPU_write_memory(cpu, cpu->state.operand, val);
   return "ISB";
-};
+}
 
 void *AAC(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_set_register(cpu, &cpu->state.A,
@@ -948,7 +948,7 @@ void *AAC(CPU_6502 *cpu, CPU_addr_mode mode) {
   if (CPU_get_status_flag(cpu, CPU_STATUS_NEGATIVE))
     CPU_set_status_flags(cpu, CPU_STATUS_CARRY);
   return "AAC";
-};
+}
 
 void *ASR(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_clear_status_flags(cpu, CPU_STATUS_CARRY);
@@ -958,7 +958,7 @@ void *ASR(CPU_6502 *cpu, CPU_addr_mode mode) {
     CPU_set_status_flags(cpu, CPU_STATUS_CARRY);
   CPU_set_register(cpu, &cpu->state.A, cpu->state.A >> 1);
   return "ASR";
-};
+}
 
 void *ARR(CPU_6502 *cpu, CPU_addr_mode mode) {
 
@@ -974,7 +974,7 @@ void *ARR(CPU_6502 *cpu, CPU_addr_mode mode) {
       ((cpu->state.A >> 5) & 1))
     CPU_set_status_flags(cpu, CPU_STATUS_OVERFLOW);
   return "ARR";
-};
+}
 
 void *ATX(CPU_6502 *cpu, CPU_addr_mode mode) {
   uint8_t val = CPU_read_memory(cpu, cpu->state.operand);
@@ -983,7 +983,7 @@ void *ATX(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_set_register(cpu, &cpu->state.A, cpu->state.A);
 
   return "ATX";
-};
+}
 
 void *AXS(CPU_6502 *cpu, CPU_addr_mode mode) {
   uint8_t val = CPU_read_memory(cpu, cpu->state.operand);
@@ -995,7 +995,7 @@ void *AXS(CPU_6502 *cpu, CPU_addr_mode mode) {
 
   CPU_set_register(cpu, &cpu->state.X, ax);
   return "AXS";
-};
+}
 
 void *SYA(CPU_6502 *cpu, CPU_addr_mode mode) {
   uint8_t high = cpu->state.operand >> 8;
@@ -1004,7 +1004,7 @@ void *SYA(CPU_6502 *cpu, CPU_addr_mode mode) {
   // maybe not correct
   CPU_write_memory(cpu, ((cpu->state.Y & (high + 1)) << 8) | low, val);
   return "SYA";
-};
+}
 
 void *SXA(CPU_6502 *cpu, CPU_addr_mode mode) {
   uint8_t high = cpu->state.operand >> 8;
@@ -1013,30 +1013,30 @@ void *SXA(CPU_6502 *cpu, CPU_addr_mode mode) {
   // maybe not correct
   CPU_write_memory(cpu, ((cpu->state.X & (high + 1)) << 8) | low, val);
   return "SXA";
-};
+}
 
 void *HLT(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_read_memory(cpu, cpu->state.operand);
   return "HLT";
-};
+}
 
 void *AXA(CPU_6502 *cpu, CPU_addr_mode mode) {
   uint16_t adr = cpu->state.operand;
   CPU_write_memory(cpu, adr, ((adr >> 8) + 1) & cpu->state.A & cpu->state.X);
   return "AXA";
-};
+}
 
 void *UNK(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_read_memory(cpu, cpu->state.operand);
   return "UNK";
-};
+}
 
 void *TAS(CPU_6502 *cpu, CPU_addr_mode mode) {
   uint16_t adr = cpu->state.operand;
   cpu->state.SP = cpu->state.X & cpu->state.A;
   CPU_write_memory(cpu, adr, cpu->state.SP & ((adr >> 8) + 1));
   return "TAS";
-};
+}
 
 void *LAS(CPU_6502 *cpu, CPU_addr_mode mode) {
   uint8_t val = CPU_read_memory(cpu, cpu->state.operand);
@@ -1044,12 +1044,12 @@ void *LAS(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_set_register(cpu, &cpu->state.X, cpu->state.A);
   cpu->state.SP = cpu->state.A;
   return "LAS";
-};
+}
 
 void *JMP_Abs(CPU_6502 *cpu, CPU_addr_mode mode) {
   cpu->state.PC = cpu->state.operand;
   return "JMP_Abs";
-};
+}
 
 void *JMP_Ind(CPU_6502 *cpu, CPU_addr_mode mode) {
   uint16_t adr = cpu->state.operand;
@@ -1064,7 +1064,7 @@ void *JMP_Ind(CPU_6502 *cpu, CPU_addr_mode mode) {
   }
   cpu->state.PC = adr;
   return "JMP_Ind";
-};
+}
 
 void *ASL_Acc(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_clear_status_flags(cpu, CPU_STATUS_CARRY | CPU_STATUS_NEGATIVE |
@@ -1081,7 +1081,7 @@ void *ASL_Acc(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_set_register(cpu, &cpu->state.A, res);
 
   return "ASL_Acc";
-};
+}
 
 void *ASL_Memory(CPU_6502 *cpu, CPU_addr_mode mode) {
   uint16_t adr = cpu->state.operand;
@@ -1100,7 +1100,7 @@ void *ASL_Memory(CPU_6502 *cpu, CPU_addr_mode mode) {
 
   CPU_write_memory(cpu, adr, res);
   return "ASL_Memory";
-};
+}
 
 void *ROR_Acc(CPU_6502 *cpu, CPU_addr_mode mode) {
   uint8_t carry = CPU_get_status_flag(cpu, CPU_STATUS_CARRY);
@@ -1115,7 +1115,7 @@ void *ROR_Acc(CPU_6502 *cpu, CPU_addr_mode mode) {
     CPU_set_status_flags(cpu, CPU_STATUS_NEGATIVE);
   CPU_set_register(cpu, &cpu->state.A, res);
   return "ROR_Acc";
-};
+}
 
 void *ROR_Memory(CPU_6502 *cpu, CPU_addr_mode mode) {
   uint16_t adr = cpu->state.operand;
@@ -1134,7 +1134,7 @@ void *ROR_Memory(CPU_6502 *cpu, CPU_addr_mode mode) {
 
   CPU_write_memory(cpu, adr, res);
   return "ROR_Memory";
-};
+}
 
 void *ROL_Acc(CPU_6502 *cpu, CPU_addr_mode mode) {
   uint8_t carry = CPU_get_status_flag(cpu, CPU_STATUS_CARRY);
@@ -1150,7 +1150,7 @@ void *ROL_Acc(CPU_6502 *cpu, CPU_addr_mode mode) {
 
   CPU_set_register(cpu, &cpu->state.A, res);
   return "ROL_Acc";
-};
+}
 
 void *ROL_Memory(CPU_6502 *cpu, CPU_addr_mode mode) {
   uint16_t adr = cpu->state.operand;
@@ -1169,7 +1169,7 @@ void *ROL_Memory(CPU_6502 *cpu, CPU_addr_mode mode) {
 
   CPU_write_memory(cpu, adr, res);
   return "ROL_Memory";
-};
+}
 
 void *LSR_Acc(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_clear_status_flags(cpu, CPU_STATUS_CARRY | CPU_STATUS_NEGATIVE |
@@ -1184,7 +1184,7 @@ void *LSR_Acc(CPU_6502 *cpu, CPU_addr_mode mode) {
 
   CPU_set_register(cpu, &cpu->state.A, res);
   return "LSR_Acc";
-};
+}
 
 void *LSR_Memory(CPU_6502 *cpu, CPU_addr_mode mode) {
   uint16_t adr = cpu->state.operand;
@@ -1204,7 +1204,7 @@ void *LSR_Memory(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_write_memory(cpu, adr, res);
 
   return "LSR_Memory";
-};
+}
 
 void *BRK(CPU_6502 *cpu, CPU_addr_mode mode) {
   uint16_t pc = cpu->state.PC + 1;
@@ -1230,7 +1230,7 @@ void *BRK(CPU_6502 *cpu, CPU_addr_mode mode) {
 
   cpu->state.last_need_nmi = 0; // weird stuff ??
   return "BRK";
-};
+}
 
 // Look up tables
 // clang-format off
