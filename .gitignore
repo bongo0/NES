@@ -3,3 +3,5 @@ obj
 bin
 .vscode
 nes-test-roms
+roms
+mycpu.log

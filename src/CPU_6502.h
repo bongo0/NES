@@ -1,8 +1,16 @@
 #ifndef CPU_6502_H
 #define CPU_6502_H
+
+#include "ROM.h"
+
 #include <stdint.h>
 #include <stdio.h>
 
+#define NESTEST_LOG_COMP
+
+#ifdef NESTEST_LOG_COMP 
+FILE *mycpu_log;
+#endif
 // processor status register
 // Status register flags
 //    7  bit  0
@@ -55,17 +63,24 @@ typedef struct cpu_state_ {
   uint64_t cycle_count;
   uint16_t operand;
   uint8_t page_cross; // flag for when page is crossed
+  uint8_t branch_taken;
+
+#ifdef NESTEST_LOG_COMP
+  uint8_t raw_operand_ind; // for nestest.log testing
+  uint8_t raw_operand_abs_low; // for nestest.log testing
+  uint8_t raw_operand_abs_high; // for nestest.log testing
+  uint8_t raw_operand_zp; // for nestest.log testing
+#endif
 
   uint8_t need_nmi;
   uint8_t last_need_nmi;
-  uint8_t last_op; // for logging
   uint64_t cycles_accumulated;
 } CPU_state;
 
 // maybe make this opaque type
 typedef struct cpu_ {
   CPU_state state;
-
+  CPU_state previous_state;// for logging
   uint8_t ram[CPU_RAM_SIZE];
 } CPU_6502;
 
@@ -94,6 +109,7 @@ typedef enum addr {
 typedef void *(*opcode_func_t)(CPU_6502 *, CPU_addr_mode);
 
 CPU_6502 *CPU_init(CPU_6502 *cpu);
+void CPU_load_rom(CPU_6502 *cpu, NES_ROM *rom);
 CPU_state CPU_get_state(CPU_6502 *CPU);
 
 void CPU_print_state_(CPU_6502 *cpu, FILE *fd);
@@ -102,7 +118,7 @@ void CPU_log_state_simple(CPU_6502 *cpu, FILE *fd, uint16_t last_pc,
 
 uint8_t CPU_get_status_flag(CPU_6502 *cpu, uint8_t flag);
 
-void CPU_load_to_memory(CPU_6502 *cpu, uint8_t *data, uint16_t size);
+void CPU_load_to_memory(CPU_6502 *cpu, uint8_t *data, uint16_t size, uint16_t adr);
 
 // things that probably does not need to be public
 void CPU_exec(CPU_6502 *CPU);

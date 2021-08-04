@@ -79,28 +79,90 @@ void CPU_print_state_(CPU_6502 *cpu, FILE *fd) {
 
 void CPU_log_state_simple(CPU_6502 *cpu, FILE *fd, uint16_t last_PC,
                           uint8_t last_op) {
-  fprintf(fd, "%04x  %02x  ", last_PC, last_op);
-  if (cpu->state.operand > 0xff)
-    fprintf(fd, "%02x %02x  ", (uint8_t)cpu->state.operand,
-            cpu->state.operand >> 8);
-  else
-    fprintf(fd, "%02x     ", cpu->state.operand);
-  fprintf(fd, "%s  ", CPU_op_names[last_op]);
+  // the op we are going to exec
+  fprintf(fd, "%04X  %02X ", last_PC, last_op);
 
-  fprintf(fd, "A:%02x X:%02x Y:%02x P:%02x SP:%02x CYC:%lu\n", cpu->state.A,
-          cpu->state.X, cpu->state.Y, cpu->state.P, cpu->state.SP,
-          cpu->state.cycles_accumulated);
+  if (last_op == 0xea    /*NOP*/
+      || last_op == 0x38 /*SEC*/
+      || last_op == 0x18 /*CLC*/
+      || last_op == 0x60 /*RTS*/
+      || last_op == 0x78 /*SEI*/
+      || last_op == 0xf8 /*SED*/
+      || last_op == 0x08 /*PHP*/
+      || last_op == 0x68 /*PLA*/
+      || last_op == 0xd8 /*CLD*/
+      || last_op == 0x48 /*PHA*/
+      || last_op == 0x28 /*PLP*/
+      || last_op == 0xb8 /*CLV*/
+      || last_op == 0xc8 /*INY*/
+      || last_op == 0xe8 /*INX*/
+      || last_op == 0x88 /*DEY*/
+      || last_op == 0xca /*DEX*/
+      || last_op == 0xa8 /*TAY*/
+      || last_op == 0xaa /*TAX*/
+      || last_op == 0x98 /*TYA*/
+      || last_op == 0x8a /*TXA*/
+      || last_op == 0xba /*TSX*/
+      || last_op == 0x9a /*TXS*/
+      || last_op == 0x40 /*RTI*/
+      || last_op == 0x4a /*LSR*/
+      || last_op == 0x0a /*ASL*/
+      || last_op == 0x6a /*ROR*/
+      || last_op == 0x2a /*ROL*/
+  ) {
+    fprintf(fd, "       ");
+  } else {
+    if (CPU_addr_mode_table[last_op] == INDIRECT_X ||
+        CPU_addr_mode_table[last_op] == INDIRECT_Y ||
+        CPU_addr_mode_table[last_op] == M__IndYW) {
+      fprintf(fd, "%02X     ", cpu->state.raw_operand_ind);
+    } else if (CPU_addr_mode_table[last_op] == ABSOLUTE_X ||
+               CPU_addr_mode_table[last_op] == ABSOLUTE_Y ||
+               CPU_addr_mode_table[last_op] == M__AbsXW ||
+               CPU_addr_mode_table[last_op] == M__AbsYW ||
+               CPU_addr_mode_table[last_op] == ABSOLUTE) {
+      fprintf(fd, "%02X %02X  ", cpu->state.raw_operand_abs_low,
+              cpu->state.raw_operand_abs_high);
+    } else if (CPU_addr_mode_table[last_op] == ZEROPAGE_X ||
+               CPU_addr_mode_table[last_op] == ZEROPAGE_Y) {
+      fprintf(fd, "%02X     ", cpu->state.raw_operand_zp);
+    } else {
+      if (cpu->state.operand > 0xff) {
+        fprintf(fd, "%02X %02X  ", (uint8_t)cpu->state.operand,
+                cpu->state.operand >> 8);
+      } else {
+        fprintf(fd, "%02X     ", cpu->state.operand);
+      }
+    }
+  }
+
+  fprintf(fd, "%s  ", CPU_op_names[last_op]);
+  // the state atm
+  fprintf(fd, "A:%02X X:%02X Y:%02X P:%02X SP:%02X CYC:%lu\n",
+          cpu->previous_state.A, cpu->previous_state.X, cpu->previous_state.Y,
+          cpu->previous_state.P, cpu->previous_state.SP,
+          cpu->previous_state.cycles_accumulated);
 }
 
 uint8_t is_page_crossed(uint16_t adr, uint8_t reg) {
-  // is this correct ???
-  return ((adr + reg) & 0xFF00) != (adr & 0xFF00);
+  uint16_t b = ((adr + reg) & 0xFF00) != (adr & 0xFF00);
+  // if (b)
+  //  printf("\nPAGE CROSS\n");
+  return b;
+}
+
+uint8_t is_page_crossed_signed(uint16_t adr, int8_t reg_signed) {
+  uint16_t b = ((adr + reg_signed) & 0xFF00) != (adr & 0xFF00);
+  // if (b)
+  //  printf("\nPAGE CROSS SIGNED\n");
+  return b;
 }
 
 CPU_state CPU_get_state(CPU_6502 *CPU) { return CPU->state; };
 
-void CPU_load_to_memory(CPU_6502 *cpu, uint8_t *data, uint16_t size) {
-  memcpy(cpu->ram, data, size);
+void CPU_load_to_memory(CPU_6502 *cpu, uint8_t *data, uint16_t size,
+                        uint16_t adr) {
+  memcpy(&cpu->ram[adr], data, size);
 };
 
 uint8_t CPU_read_memory(CPU_6502 *CPU, uint16_t adr) { return CPU->ram[adr]; };
@@ -127,12 +189,14 @@ uint8_t CPU_get_op(CPU_6502 *CPU) {
 };
 
 void CPU_exec(CPU_6502 *cpu) {
+  cpu->previous_state = cpu->state;
   cpu->state.page_cross = 0;
 
   uint16_t last_PC = cpu->state.PC;
   uint8_t op = CPU_get_op(cpu);
   CPU_op_cycles_t ct = CPU_op_cycles_table[op];
   cpu->state.operand = CPU_get_operand(cpu);
+  cpu->state.PC++;
   CPU_exec_instruction(cpu, op);
 
   // cycles
@@ -144,12 +208,18 @@ void CPU_exec(CPU_6502 *cpu) {
     // cycle
     cpu->state.cycles_accumulated++;
   }
+  if (cpu->state.branch_taken) {
+    cpu->state.cycles_accumulated++;
+  }
   // printf("\n");
-  CPU_log_state_simple(cpu, stdout, last_PC, op);
+#ifdef NESTEST_LOG_COMP
+  CPU_log_state_simple(cpu, mycpu_log, last_PC, op);
+#endif
 };
 
-inline void CPU_exec_instruction(CPU_6502 *CPU, uint8_t op_code) {
-  CPU_op_table[op_code](CPU, CPU_addr_mode_table[op_code]);
+inline void CPU_exec_instruction(CPU_6502 *cpu, uint8_t op_code) {
+  cpu->state.branch_taken = 0;
+  CPU_op_table[op_code](cpu, CPU_addr_mode_table[op_code]);
 
   // printf("0x%02x == %s  mode: ", op_code, tmp);
   // printf("\n");
@@ -178,6 +248,7 @@ uint16_t CPU_get_zeropage(CPU_6502 *cpu) {
 // d,x	Zero page indexed	val = PEEK((arg + X) % 256)	4
 uint16_t CPU_get_zeropage_idx_X(CPU_6502 *cpu) {
   uint16_t operand = CPU_read_memory(cpu, ++cpu->state.PC);
+  cpu->state.raw_operand_zp = operand;
   operand = (operand + cpu->state.X) % 256;
   cpu->state.operand = operand;
   return operand;
@@ -186,6 +257,7 @@ uint16_t CPU_get_zeropage_idx_X(CPU_6502 *cpu) {
 // d,y	Zero page indexed	val = PEEK((arg + Y) % 256)	4
 uint16_t CPU_get_zeropage_idx_Y(CPU_6502 *cpu) {
   uint16_t operand = CPU_read_memory(cpu, ++cpu->state.PC);
+  cpu->state.raw_operand_zp = operand;
   operand = (operand + cpu->state.Y) % 256;
   cpu->state.operand = operand;
   return operand;
@@ -207,7 +279,8 @@ uint16_t CPU_get_indirect(CPU_6502 *cpu) {
 //+ 1) % 256) * 256)	6
 uint16_t CPU_get_indirect_idx_X(CPU_6502 *cpu) {
   uint16_t operand;
-  uint16_t z = CPU_read_memory(cpu, ++cpu->state.PC);
+  uint8_t z = CPU_read_memory(cpu, ++cpu->state.PC);
+  cpu->state.raw_operand_ind = z;
   z += cpu->state.X;
 
   if (z == 0xff)
@@ -226,8 +299,8 @@ uint16_t CPU_get_indirect_idx_X(CPU_6502 *cpu) {
 // wrapping on read instructions)
 uint16_t CPU_get_indirect_idx_Y(CPU_6502 *cpu) {
   uint16_t operand;
-  uint16_t z = CPU_read_memory(cpu, ++cpu->state.PC);
-
+  uint8_t z = CPU_read_memory(cpu, ++cpu->state.PC);
+  cpu->state.raw_operand_ind = z;
   if (z == 0xff)
     operand = CPU_read_memory(cpu, 0xFF) | (CPU_read_memory(cpu, 0x00) << 8);
   else
@@ -245,6 +318,10 @@ uint16_t CPU_get_indirect_idx_Y(CPU_6502 *cpu) {
 uint16_t CPU_get_absolute(CPU_6502 *cpu) {
   uint8_t low = CPU_read_memory(cpu, ++cpu->state.PC);
   uint8_t high = CPU_read_memory(cpu, ++cpu->state.PC);
+
+  cpu->state.raw_operand_abs_low = low;
+  cpu->state.raw_operand_abs_high = high;
+
   uint16_t operand = low | (high << 8);
   cpu->state.operand = operand;
   return operand;
@@ -302,24 +379,37 @@ uint16_t CPU_get_operand(CPU_6502 *cpu) {
   case ACCUMULATE:
     return CPU_get_accumulate(cpu);
     // what are these???
-  case M__AbsYW: return 0;
-  case M__AbsXW: return 0;
-  case M__IndYW: return 0;
+  case M__AbsYW: return CPU_get_absolute_idx_Y(cpu);
+  case M__AbsXW: return CPU_get_absolute_idx_X(cpu);
+  case M__IndYW: return CPU_get_indirect_idx_Y(cpu);
   case NONE: return 0;
   default: return 0;
   }
   return 0;
 };
 
+uint8_t CPU_get_operand_val(CPU_6502 *cpu, CPU_addr_mode mode) {
+  switch (mode) {
+  case NONE:
+  case ACCUMULATE:
+  case IMPLICIT:
+  case IMMIDIATE:
+  case RELATIVE: return cpu->state.operand;
+  default: return CPU_read_memory(cpu, cpu->state.operand);
+  }
+}
+
 // helpers for instructions
 void CPU_branch_relative(CPU_6502 *cpu, uint8_t b) {
-  int8_t jmp_offset = (int8_t)CPU_get_operand(cpu);
+  int8_t jmp_offset =
+      (int8_t)cpu->state.operand; //(int8_t)CPU_get_operand(cpu);
   if (b) {
-
+    // +1 cycle on branches taken
+    cpu->state.branch_taken = 1;
     // TODO irq stuff
 
     // page cross ...
-    cpu->state.page_cross = is_page_crossed(cpu->state.PC, jmp_offset);
+    cpu->state.page_cross = is_page_crossed_signed(cpu->state.PC, jmp_offset);
 
     cpu->state.PC += jmp_offset;
   }
@@ -359,12 +449,12 @@ void *BCS(CPU_6502 *cpu, CPU_addr_mode mode) {
 };
 
 void *BVC(CPU_6502 *cpu, CPU_addr_mode mode) {
-  CPU_branch_relative(cpu, CPU_get_status_flag(cpu, CPU_STATUS_OVERFLOW));
+  CPU_branch_relative(cpu, !CPU_get_status_flag(cpu, CPU_STATUS_OVERFLOW));
   return "BVC";
 };
 
 void *BVS(CPU_6502 *cpu, CPU_addr_mode mode) {
-  CPU_branch_relative(cpu, !CPU_get_status_flag(cpu, CPU_STATUS_OVERFLOW));
+  CPU_branch_relative(cpu, CPU_get_status_flag(cpu, CPU_STATUS_OVERFLOW));
   return "BVS";
 };
 
@@ -374,22 +464,22 @@ void *BNE(CPU_6502 *cpu, CPU_addr_mode mode) {
 };
 
 void *BEQ(CPU_6502 *cpu, CPU_addr_mode mode) {
-  CPU_branch_relative(cpu, CPU_get_status_flag(cpu, CPU_STATUS_CARRY));
+  CPU_branch_relative(cpu, CPU_get_status_flag(cpu, CPU_STATUS_ZERO));
   return "BEQ";
 };
 
 void *LDY(CPU_6502 *cpu, CPU_addr_mode mode) {
-  CPU_set_register(cpu, &cpu->state.Y, cpu->state.operand);
+  CPU_set_register(cpu, &cpu->state.Y, CPU_get_operand_val(cpu, mode));
   return "LDY";
 };
 
 void *LDA(CPU_6502 *cpu, CPU_addr_mode mode) {
-  CPU_set_register(cpu, &cpu->state.A, cpu->state.operand);
+  CPU_set_register(cpu, &cpu->state.A, CPU_get_operand_val(cpu, mode));
   return "LDA";
 };
 
 void *LDX(CPU_6502 *cpu, CPU_addr_mode mode) {
-  CPU_set_register(cpu, &cpu->state.X, cpu->state.operand);
+  CPU_set_register(cpu, &cpu->state.X, CPU_get_operand_val(cpu, mode));
   return "LDX";
 };
 
@@ -429,7 +519,7 @@ void *SED(CPU_6502 *cpu, CPU_addr_mode mode) {
 };
 
 void *NOP(CPU_6502 *cpu, CPU_addr_mode mode) {
-  CPU_get_operand(cpu);
+  // TODO check cycles
   return "NOP";
 };
 
@@ -484,22 +574,25 @@ void *TXS(CPU_6502 *cpu, CPU_addr_mode mode) {
 };
 
 void *AND(CPU_6502 *cpu, CPU_addr_mode mode) {
-  CPU_set_register(cpu, &cpu->state.A, cpu->state.A & cpu->state.operand);
+  CPU_set_register(cpu, &cpu->state.A,
+                   cpu->state.A & CPU_get_operand_val(cpu, mode));
   return "AND";
 };
 
 void *EOR(CPU_6502 *cpu, CPU_addr_mode mode) {
-  CPU_set_register(cpu, &cpu->state.A, cpu->state.A ^ cpu->state.operand);
+  CPU_set_register(cpu, &cpu->state.A,
+                   cpu->state.A ^ CPU_get_operand_val(cpu, mode));
   return "EOR";
 };
 
 void *ORA(CPU_6502 *cpu, CPU_addr_mode mode) {
-  CPU_set_register(cpu, &cpu->state.A, cpu->state.A | cpu->state.operand);
+  CPU_set_register(cpu, &cpu->state.A,
+                   cpu->state.A | CPU_get_operand_val(cpu, mode));
   return "ORA";
 };
 
 void *ADC(CPU_6502 *cpu, CPU_addr_mode mode) {
-  uint8_t val = cpu->state.operand;
+  uint8_t val = CPU_get_operand_val(cpu, mode);
   uint16_t res = (uint16_t)cpu->state.A + (uint16_t)val;
   res += CPU_get_status_flag(cpu, CPU_STATUS_CARRY) ? 1 : 0;
   CPU_clear_status_flags(cpu, CPU_STATUS_ZERO | CPU_STATUS_CARRY |
@@ -509,7 +602,7 @@ void *ADC(CPU_6502 *cpu, CPU_addr_mode mode) {
   else if (res & 0x80)
     CPU_set_status_flags(cpu, CPU_STATUS_NEGATIVE);
 
-  if ((~cpu->state.A ^ val) & (cpu->state.A ^ res) & 0x80)
+  if (~(cpu->state.A ^ val) & (cpu->state.A ^ res) & 0x80)
     CPU_set_status_flags(cpu, CPU_STATUS_OVERFLOW);
   if (res > 0xff)
     CPU_set_status_flags(cpu, CPU_STATUS_CARRY);
@@ -518,7 +611,7 @@ void *ADC(CPU_6502 *cpu, CPU_addr_mode mode) {
 };
 
 void *SBC(CPU_6502 *cpu, CPU_addr_mode mode) {
-  uint8_t val = cpu->state.operand ^ 0xff;
+  uint8_t val = CPU_get_operand_val(cpu, mode) ^ 0xff;
   uint16_t res = (uint16_t)cpu->state.A + (uint16_t)val;
   res += CPU_get_status_flag(cpu, CPU_STATUS_CARRY) ? 1 : 0;
   CPU_clear_status_flags(cpu, CPU_STATUS_ZERO | CPU_STATUS_CARRY |
@@ -528,7 +621,7 @@ void *SBC(CPU_6502 *cpu, CPU_addr_mode mode) {
   else if (res & 0x80)
     CPU_set_status_flags(cpu, CPU_STATUS_NEGATIVE);
 
-  if ((cpu->state.A ^ val) & (cpu->state.A ^ res) & 0x80)
+  if (~(cpu->state.A ^ val) & (cpu->state.A ^ res) & 0x80)
     CPU_set_status_flags(cpu, CPU_STATUS_OVERFLOW);
   if (res > 0xff)
     CPU_set_status_flags(cpu, CPU_STATUS_CARRY);
@@ -539,12 +632,12 @@ void *SBC(CPU_6502 *cpu, CPU_addr_mode mode) {
 void *CPX(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_clear_status_flags(cpu, CPU_STATUS_CARRY | CPU_STATUS_NEGATIVE |
                                   CPU_STATUS_ZERO);
-
-  if (cpu->state.X >= cpu->state.operand)
+  uint8_t opr = CPU_get_operand_val(cpu, mode);
+  if (cpu->state.X >= opr)
     CPU_set_status_flags(cpu, CPU_STATUS_CARRY);
-  if (cpu->state.X == cpu->state.operand)
+  if (cpu->state.X == opr)
     CPU_set_status_flags(cpu, CPU_STATUS_ZERO);
-  if (((cpu->state.X - cpu->state.operand) & 0x80) == 0x80)
+  if (((cpu->state.X - opr) & 0x80) == 0x80)
     CPU_set_status_flags(cpu, CPU_STATUS_NEGATIVE);
 
   return "CPX";
@@ -553,12 +646,12 @@ void *CPX(CPU_6502 *cpu, CPU_addr_mode mode) {
 void *CPA(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_clear_status_flags(cpu, CPU_STATUS_CARRY | CPU_STATUS_NEGATIVE |
                                   CPU_STATUS_ZERO);
-
-  if (cpu->state.A >= cpu->state.operand)
+  uint8_t opr = CPU_get_operand_val(cpu, mode);
+  if (cpu->state.A >= opr)
     CPU_set_status_flags(cpu, CPU_STATUS_CARRY);
-  if (cpu->state.A == cpu->state.operand)
+  if (cpu->state.A == opr)
     CPU_set_status_flags(cpu, CPU_STATUS_ZERO);
-  if (((cpu->state.A - cpu->state.operand) & 0x80) == 0x80)
+  if (((cpu->state.A - opr) & 0x80) == 0x80)
     CPU_set_status_flags(cpu, CPU_STATUS_NEGATIVE);
 
   return "CPA";
@@ -567,12 +660,12 @@ void *CPA(CPU_6502 *cpu, CPU_addr_mode mode) {
 void *CPY(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_clear_status_flags(cpu, CPU_STATUS_CARRY | CPU_STATUS_NEGATIVE |
                                   CPU_STATUS_ZERO);
-
-  if (cpu->state.Y >= cpu->state.operand)
+  uint8_t opr = CPU_get_operand_val(cpu, mode);
+  if (cpu->state.Y >= opr)
     CPU_set_status_flags(cpu, CPU_STATUS_CARRY);
-  if (cpu->state.Y == cpu->state.operand)
+  if (cpu->state.Y == opr)
     CPU_set_status_flags(cpu, CPU_STATUS_ZERO);
-  if (((cpu->state.Y - cpu->state.operand) & 0x80) == 0x80)
+  if (((cpu->state.Y - opr) & 0x80) == 0x80)
     CPU_set_status_flags(cpu, CPU_STATUS_NEGATIVE);
 
   return "CPY";
@@ -609,7 +702,7 @@ void *DEC(CPU_6502 *cpu, CPU_addr_mode mode) {
 };
 
 void *BIT(CPU_6502 *cpu, CPU_addr_mode mode) {
-  uint8_t val = cpu->state.operand;
+  uint8_t val = CPU_read_memory(cpu, cpu->state.operand);
   CPU_clear_status_flags(cpu, CPU_STATUS_ZERO | CPU_STATUS_OVERFLOW |
                                   CPU_STATUS_NEGATIVE);
   if ((cpu->state.A & val) == 0)
@@ -647,7 +740,9 @@ void *PLA(CPU_6502 *cpu, CPU_addr_mode mode) {
 };
 
 void *PLP(CPU_6502 *cpu, CPU_addr_mode mode) {
-  cpu->state.P = CPU_stack_pop(cpu) & 0xcf;
+  cpu->state.P = CPU_stack_pop(cpu) & 0xcf; // or 0xef??
+  cpu->state.P |= CPU_STATUS_RESERVED; // always set -- not important -- for
+                                       // easy comparing with nestest.log
   return "PLP";
 };
 
@@ -680,6 +775,7 @@ void *RTS(CPU_6502 *cpu, CPU_addr_mode mode) {
 void *RTI(CPU_6502 *cpu, CPU_addr_mode mode) {
 
   cpu->state.P = CPU_stack_pop(cpu);
+  cpu->state.P |= CPU_STATUS_RESERVED; // for nestest.log comparison
 
   uint8_t low = CPU_stack_pop(cpu);
   uint8_t high = CPU_stack_pop(cpu);
@@ -690,13 +786,13 @@ void *RTI(CPU_6502 *cpu, CPU_addr_mode mode) {
 };
 
 void *SLO(CPU_6502 *cpu, CPU_addr_mode mode) {
-  uint8_t val = CPU_read_memory(cpu, cpu->state.operand);
+  uint8_t val = CPU_get_operand_val(cpu, mode);
 
   CPU_clear_status_flags(cpu, CPU_STATUS_CARRY | CPU_STATUS_NEGATIVE |
                                   CPU_STATUS_ZERO);
   if (val & 0x80)
     CPU_set_status_flags(cpu, CPU_STATUS_CARRY);
-  val <<= 1;
+  val = val << 1;
   if (val == 0)
     CPU_set_status_flags(cpu, CPU_STATUS_ZERO);
   else if (val & 0x80)
@@ -753,7 +849,7 @@ void *RLA(CPU_6502 *cpu, CPU_addr_mode mode) {
 
 void *RRA(CPU_6502 *cpu, CPU_addr_mode mode) {
 
-  uint8_t val = CPU_read_memory(cpu, cpu->state.operand);
+  uint8_t val = CPU_get_operand_val(cpu, mode);
 
   uint8_t carry = CPU_get_status_flag(cpu, CPU_STATUS_CARRY);
   CPU_clear_status_flags(cpu, CPU_STATUS_CARRY | CPU_STATUS_NEGATIVE |
@@ -768,15 +864,15 @@ void *RRA(CPU_6502 *cpu, CPU_addr_mode mode) {
   else if (val & 0x80)
     CPU_set_status_flags(cpu, CPU_STATUS_NEGATIVE);
 
-  CPU_set_register(cpu, &cpu->state.A, cpu->state.A & val);
+  // CPU_set_register(cpu, &cpu->state.A, cpu->state.A & val);
 
   uint16_t res = (uint16_t)cpu->state.A + (uint16_t)val +
                  (CPU_get_status_flag(cpu, CPU_STATUS_CARRY) ? 1 : 0);
   CPU_clear_status_flags(cpu, CPU_STATUS_CARRY | CPU_STATUS_NEGATIVE |
-                                  CPU_STATUS_ZERO);
-  if (res == 0)
+                                  CPU_STATUS_ZERO | CPU_STATUS_OVERFLOW);
+  if ((uint8_t)res == 0)
     CPU_set_status_flags(cpu, CPU_STATUS_ZERO);
-  else if (res & 0x80)
+  else if ((uint8_t)res & 0x80)
     CPU_set_status_flags(cpu, CPU_STATUS_NEGATIVE);
 
   if (~(cpu->state.A ^ val) & (cpu->state.A ^ res) & 0x80)
@@ -796,14 +892,14 @@ void *SAX(CPU_6502 *cpu, CPU_addr_mode mode) {
 };
 
 void *LAX(CPU_6502 *cpu, CPU_addr_mode mode) {
-  uint8_t val = CPU_read_memory(cpu, cpu->state.operand);
+  uint8_t val = CPU_get_operand_val(cpu, mode);
   CPU_set_register(cpu, &cpu->state.A, val);
   CPU_set_register(cpu, &cpu->state.X, val);
   return "LAX";
 };
 
 void *DCP(CPU_6502 *cpu, CPU_addr_mode mode) {
-  uint8_t val = CPU_read_memory(cpu, cpu->state.operand);
+  uint8_t val = CPU_get_operand_val(cpu, mode);
   val--;
 
   CPU_clear_status_flags(cpu, CPU_STATUS_CARRY | CPU_STATUS_NEGATIVE |
@@ -812,7 +908,9 @@ void *DCP(CPU_6502 *cpu, CPU_addr_mode mode) {
     CPU_set_status_flags(cpu, CPU_STATUS_CARRY);
   if (cpu->state.A == val)
     CPU_set_status_flags(cpu, CPU_STATUS_ZERO);
-  if (((cpu->state.A - val) & 0x80) == 0x80)
+
+  int tmp = (cpu->state.A - val);
+  if ((tmp & 0x80) == 0x80)
     CPU_set_status_flags(cpu, CPU_STATUS_NEGATIVE);
 
   CPU_write_memory(cpu, cpu->state.operand, val);
@@ -820,19 +918,20 @@ void *DCP(CPU_6502 *cpu, CPU_addr_mode mode) {
 };
 
 void *ISB(CPU_6502 *cpu, CPU_addr_mode mode) {
-  uint8_t val = CPU_read_memory(cpu, cpu->state.operand);
+  uint8_t val = CPU_get_operand_val(cpu, mode);
   val++;
 
-  uint16_t res = (uint16_t)cpu->state.A + (uint16_t)val +
+  uint8_t tmp = val ^ 0xff;
+  uint16_t res = (uint16_t)cpu->state.A + (uint16_t)tmp +
                  (CPU_get_status_flag(cpu, CPU_STATUS_CARRY) ? 1 : 0);
   CPU_clear_status_flags(cpu, CPU_STATUS_CARRY | CPU_STATUS_NEGATIVE |
-                                  CPU_STATUS_ZERO);
+                                  CPU_STATUS_ZERO | CPU_STATUS_OVERFLOW);
   if ((uint8_t)res == 0)
     CPU_set_status_flags(cpu, CPU_STATUS_ZERO);
   else if ((uint8_t)res & 0x80)
     CPU_set_status_flags(cpu, CPU_STATUS_NEGATIVE);
 
-  if (~(cpu->state.A ^ val) & (cpu->state.A ^ res) & 0x80)
+  if (~(cpu->state.A ^ tmp) & (cpu->state.A ^ res) & 0x80)
     CPU_set_status_flags(cpu, CPU_STATUS_OVERFLOW);
   if (res > 0xff)
     CPU_set_status_flags(cpu, CPU_STATUS_CARRY);
@@ -953,8 +1052,8 @@ void *JMP_Abs(CPU_6502 *cpu, CPU_addr_mode mode) {
 };
 
 void *JMP_Ind(CPU_6502 *cpu, CPU_addr_mode mode) {
-  uint8_t adr = cpu->state.operand;
-  if ((adr & 0xff)) {
+  uint16_t adr = cpu->state.operand;
+  if ((adr & 0xff) == 0xff) {
     uint8_t low = CPU_read_memory(cpu, adr);
     uint8_t high = CPU_read_memory(cpu, adr - 0xff);
     adr = low | (high << 8);
@@ -963,7 +1062,7 @@ void *JMP_Ind(CPU_6502 *cpu, CPU_addr_mode mode) {
     uint8_t high = CPU_read_memory(cpu, adr + 1);
     adr = low | (high << 8);
   }
-  cpu->state.SP = adr;
+  cpu->state.PC = adr;
   return "JMP_Ind";
 };
 
@@ -1091,6 +1190,9 @@ void *LSR_Memory(CPU_6502 *cpu, CPU_addr_mode mode) {
   uint16_t adr = cpu->state.operand;
   uint8_t val = CPU_read_memory(cpu, adr);
 
+  CPU_clear_status_flags(cpu, CPU_STATUS_CARRY | CPU_STATUS_NEGATIVE |
+                                  CPU_STATUS_ZERO);
+
   if (val & 1)
     CPU_set_status_flags(cpu, CPU_STATUS_CARRY);
   uint8_t res = val >> 1;
@@ -1194,23 +1296,33 @@ CPU_op_cycles_t CPU_op_cycles_table[] ={
 
 
 char* CPU_op_names[] = {
-//      0       1       2       3       4       5       6              7       8       9       A            B      C            D      E               F
-        "BRK",  "ORA",  "HLT",  "SLO",  "NOP",  "ORA",  "ASL_Memory",  "SLO",  "PHP",  "ORA",  "ASL_Acc",  "AAC",  "NOP",      "ORA",  "ASL_Memory",  "SLO", //0
-        "BPL",  "ORA",  "HLT",  "SLO",  "NOP",  "ORA",  "ASL_Memory",  "SLO",  "CLC",  "ORA",  "NOP",      "SLO",  "NOP",      "ORA",  "ASL_Memory",  "SLO", //1
-        "JSR",  "AND",  "HLT",  "RLA",  "BIT",  "AND",  "ROL_Memory",  "RLA",  "PLP",  "AND",  "ROL_Acc",  "AAC",  "BIT",      "AND",  "ROL_Memory",  "RLA", //2
-        "BMI",  "AND",  "HLT",  "RLA",  "NOP",  "AND",  "ROL_Memory",  "RLA",  "SEC",  "AND",  "NOP",      "RLA",  "NOP",      "AND",  "ROL_Memory",  "RLA", //3
-        "RTI",  "EOR",  "HLT",  "SRE",  "NOP",  "EOR",  "LSR_Memory",  "SRE",  "PHA",  "EOR",  "LSR_Acc",  "ASR",  "JMP_Abs",  "EOR",  "LSR_Memory",  "SRE", //4
-        "BVC",  "EOR",  "HLT",  "SRE",  "NOP",  "EOR",  "LSR_Memory",  "SRE",  "CLI",  "EOR",  "NOP",      "SRE",  "NOP",      "EOR",  "LSR_Memory",  "SRE", //5
-        "RTS",  "ADC",  "HLT",  "RRA",  "NOP",  "ADC",  "ROR_Memory",  "RRA",  "PLA",  "ADC",  "ROR_Acc",  "ARR",  "JMP_Ind",  "ADC",  "ROR_Memory",  "RRA", //6
-        "BVS",  "ADC",  "HLT",  "RRA",  "NOP",  "ADC",  "ROR_Memory",  "RRA",  "SEI",  "ADC",  "NOP",      "RRA",  "NOP",      "ADC",  "ROR_Memory",  "RRA", //7
-        "NOP",  "STA",  "NOP",  "SAX",  "STY",  "STA",  "STX",         "SAX",  "DEY",  "NOP",  "TXA",      "UNK",  "STY",      "STA",  "STX",         "SAX", //8
-        "BCC",  "STA",  "HLT",  "AXA",  "STY",  "STA",  "STX",         "SAX",  "TYA",  "STA",  "TXS",      "TAS",  "SYA",      "STA",  "SXA",         "AXA", //9
-        "LDY",  "LDA",  "LDX",  "LAX",  "LDY",  "LDA",  "LDX",         "LAX",  "TAY",  "LDA",  "TAX",      "ATX",  "LDY",      "LDA",  "LDX",         "LAX", //A
-        "BCS",  "LDA",  "HLT",  "LAX",  "LDY",  "LDA",  "LDX",         "LAX",  "CLV",  "LDA",  "TSX",      "LAS",  "LDY",      "LDA",  "LDX",         "LAX", //B
-        "CPY",  "CPA",  "NOP",  "DCP",  "CPY",  "CPA",  "DEC",         "DCP",  "INY",  "CPA",  "DEX",      "AXS",  "CPY",      "CPA",  "DEC",         "DCP", //C
-        "BNE",  "CPA",  "HLT",  "DCP",  "NOP",  "CPA",  "DEC",         "DCP",  "CLD",  "CPA",  "NOP",      "DCP",  "NOP",      "CPA",  "DEC",         "DCP", //D
-        "CPX",  "SBC",  "NOP",  "ISB",  "CPX",  "SBC",  "INC",         "ISB",  "INX",  "SBC",  "NOP",      "SBC",  "CPX",      "SBC",  "INC",         "ISB", //E
-        "BEQ",  "SBC",  "HLT",  "ISB",  "NOP",  "SBC",  "INC",         "ISB",  "SED",  "SBC",  "NOP",      "ISB",  "NOP",      "SBC",  "INC",         "ISB"  //F
+//      0       1            2       3       4       5            6               7       8       9            A            B       C            D            E               F
+        "BRK",  "ORA",       "HLT",  "SLO",  "NOP",  "ORA",       "ASL"/*Memory*/,"SLO",  "PHP",  "ORA",       "ASL"/*Acc*/,"AAC",  "NOP",       "ORA",       "ASL"/*Memory*/,"SLO", //0
+        "BPL",  "ORA",       "HLT",  "SLO",  "NOP",  "ORA",       "ASL"/*Memory*/,"SLO",  "CLC",  "ORA",       "NOP",       "SLO",  "NOP",       "ORA",       "ASL"/*Memory*/,"SLO", //1
+        "JSR",  "AND",       "HLT",  "RLA",  "BIT",  "AND",       "ROL"/*Memory*/,"RLA",  "PLP",  "AND",       "ROL"/*Acc*/,"AAC",  "BIT",       "AND",       "ROL"/*Memory*/,"RLA", //2
+        "BMI",  "AND",       "HLT",  "RLA",  "NOP",  "AND",       "ROL"/*Memory*/,"RLA",  "SEC",  "AND",       "NOP",       "RLA",  "NOP",       "AND",       "ROL"/*Memory*/,"RLA", //3
+        "RTI",  "EOR",       "HLT",  "SRE",  "NOP",  "EOR",       "LSR"/*Memory*/,"SRE",  "PHA",  "EOR",       "LSR"/*Acc*/,"ASR",  "JMP",       "EOR",       "LSR"/*Memory*/,"SRE", //4
+        "BVC",  "EOR",       "HLT",  "SRE",  "NOP",  "EOR",       "LSR"/*Memory*/,"SRE",  "CLI",  "EOR",       "NOP",       "SRE",  "NOP",       "EOR",       "LSR"/*Memory*/,"SRE", //5
+        "RTS",  "ADC",       "HLT",  "RRA",  "NOP",  "ADC",       "ROR"/*Memory*/,"RRA",  "PLA",  "ADC",       "ROR"/*Acc*/,"ARR",  "JMP"/*Ind*/,"ADC",       "ROR"/*Memory*/,"RRA", //6
+        "BVS",  "ADC",       "HLT",  "RRA",  "NOP",  "ADC",       "ROR"/*Memory*/,"RRA",  "SEI",  "ADC",       "NOP",       "RRA",  "NOP",       "ADC",       "ROR"/*Memory*/,"RRA", //7
+        "NOP",  "STA",       "NOP",  "SAX",  "STY",  "STA",       "STX",          "SAX",  "DEY",  "NOP",       "TXA",       "UNK",  "STY",       "STA",       "STX",          "SAX", //8
+        "BCC",  "STA",       "HLT",  "AXA",  "STY",  "STA",       "STX",          "SAX",  "TYA",  "STA",       "TXS",       "TAS",  "SYA",       "STA",       "SXA",          "AXA", //9
+        "LDY",  "LDA",       "LDX",  "LAX",  "LDY",  "LDA",       "LDX",          "LAX",  "TAY",  "LDA",       "TAX",       "ATX",  "LDY",       "LDA",       "LDX",          "LAX", //A
+        "BCS",  "LDA",       "HLT",  "LAX",  "LDY",  "LDA",       "LDX",          "LAX",  "CLV",  "LDA",       "TSX",       "LAS",  "LDY",       "LDA",       "LDX",          "LAX", //B
+        "CPY",  "CMP"/*CPA*/,"NOP",  "DCP",  "CPY",  "CMP",/*CPA*/"DEC",          "DCP",  "INY",  "CMP"/*CPA*/,"DEX",       "AXS",  "CPY",       "CMP"/*CPA*/,"DEC",          "DCP", //C
+        "BNE",  "CMP"/*CPA*/,"HLT",  "DCP",  "NOP",  "CMP",/*CPA*/"DEC",          "DCP",  "CLD",  "CMP"/*CPA*/,"NOP",       "DCP",  "NOP",       "CMP"/*CPA*/,"DEC",          "DCP", //D
+        "CPX",  "SBC",       "NOP",  "ISB",  "CPX",  "SBC",       "INC",          "ISB",  "INX",  "SBC",       "NOP",       "SBC",  "CPX",       "SBC",       "INC",          "ISB", //E
+        "BEQ",  "SBC",       "HLT",  "ISB",  "NOP",  "SBC",       "INC",          "ISB",  "SED",  "SBC",       "NOP",       "ISB",  "NOP",       "SBC",       "INC",          "ISB"  //F
 
 };
 // clang-format on
+
+void CPU_load_rom(CPU_6502 *cpu, NES_ROM *rom) {
+  // trainer stuff
+  // The Trainer Area follows the 16-byte Header and precedes the PRG-ROM area
+  // if bit 2 of Header byte 6 is set. It is always 512 bytes in size if
+  // present, and contains data to be loaded into CPU memory at $7000. It is
+  // only used by some games that were modified to run on different hardware
+  // from the original cartridges, such as early RAM cartridges and emulators,
+  // and which put some additional compatibility code into those address ranges.
+}
