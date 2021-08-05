@@ -6,70 +6,68 @@ const char *NES_PPU_MODEL_STR[] = {
     "PPU_2C05C", "PPU_2C05D", "PPU_2C05E",
 };
 
-const char *NES_MIRRORING_TYPE_STR[] = {
-    "MIRROR_FOUR_SCREENS", "MIRROR_VERTICAL", "MIRROR_HORIZONTAL"};
+const char *NES_MIRRORING_TYPE_STR[] = {"MIRROR_FOUR_SCREENS",
+                                        "MIRROR_VERTICAL", "MIRROR_HORIZONTAL"};
 
 const char *NES_SYSTEM_TYPE_STR[] = {
     "NTSC",      "PAL",         "DENDY", "FAMICOM",
     "VS_SYSTEM", "PLAY_CHOISE", "FDS",   "SYS_UNSPECIFIED"};
 
 const char *NES_VS_SYSTEM_TYPE_STR[] = {"VS_DEFAULT",
-                                               "RBIBASEBALL_PROTECTION",
-                                               "TKOBOXING_PROTECTION",
-                                               "SUPERXEVIOUS_PROTECTION",
-                                               "ICECLIMBER_PROTECTION",
-                                               "VS_DUAL_SYSTEM",
-                                               "RAIDONBUNGELINGBAY_PROTECTION"};
+                                        "RBIBASEBALL_PROTECTION",
+                                        "TKOBOXING_PROTECTION",
+                                        "SUPERXEVIOUS_PROTECTION",
+                                        "ICECLIMBER_PROTECTION",
+                                        "VS_DUAL_SYSTEM",
+                                        "RAIDONBUNGELINGBAY_PROTECTION"};
 
 const char *NES_INPUT_TYPE_STR[] = {"INP_UNSPECIFIED",
-                                           "STANDARDCONTROLLERS",
-                                           "FOURSCORE",
-                                           "FOURPLAYERADAPTER",
-                                           "VSSYSTEM",
-                                           "VSSYSTEMSWAPPED",
-                                           "VSSYSTEMSWAPAB",
-                                           "VSZAPPER",
-                                           "ZAPPER",
-                                           "TWOZAPPERS",
-                                           "BANDAIHYPERSHOT",
-                                           "POWERPADSIDEA",
-                                           "POWERPADSIDEB",
-                                           "FAMILYTRAINERSIDEA",
-                                           "FAMILYTRAINERSIDEB",
-                                           "ARKANOIDCONTROLLERNES",
-                                           "ARKANOIDCONTROLLERFAMICOM",
-                                           "DOUBLEARKANOIDCONTROLLER",
-                                           "KONAMIHYPERSHOT",
-                                           "PACHINKOCONTROLLER",
-                                           "EXCITINGBOXING",
-                                           "JISSENMAHJONG",
-                                           "PARTYTAP",
-                                           "OEKAKIDSTABLET",
-                                           "BARCODEBATTLER",
-                                           "MIRACLEPIANO",
-                                           "POKKUNMOGURAA",
-                                           "TOPRIDER",
-                                           "DOUBLEFISTED",
-                                           "FAMICOM3DSYSTEM",
-                                           "DOREMIKKOKEYBOARD",
-                                           "ROB",
-                                           "FAMICOMDATARECORDER",
-                                           "TURBOFILE",
-                                           "BATTLEBOX",
-                                           "FAMILYBASICKEYBOARD",
-                                           "PEC586KEYBOARD",
-                                           "BIT79KEYBOARD",
-                                           "SUBORKEYBOARD",
-                                           "SUBORKEYBOARDMOUSE1",
-                                           "SUBORKEYBOARDMOUSE2",
-                                           "SNESMOUSE",
-                                           "GENERICMULTICART",
-                                           "SNESCONTROLLERS",
-                                           "RACERMATEBICYCLE",
-                                           "UFORCE",
-                                           "LASTENTRY"};
-
-
+                                    "STANDARDCONTROLLERS",
+                                    "FOURSCORE",
+                                    "FOURPLAYERADAPTER",
+                                    "VSSYSTEM",
+                                    "VSSYSTEMSWAPPED",
+                                    "VSSYSTEMSWAPAB",
+                                    "VSZAPPER",
+                                    "ZAPPER",
+                                    "TWOZAPPERS",
+                                    "BANDAIHYPERSHOT",
+                                    "POWERPADSIDEA",
+                                    "POWERPADSIDEB",
+                                    "FAMILYTRAINERSIDEA",
+                                    "FAMILYTRAINERSIDEB",
+                                    "ARKANOIDCONTROLLERNES",
+                                    "ARKANOIDCONTROLLERFAMICOM",
+                                    "DOUBLEARKANOIDCONTROLLER",
+                                    "KONAMIHYPERSHOT",
+                                    "PACHINKOCONTROLLER",
+                                    "EXCITINGBOXING",
+                                    "JISSENMAHJONG",
+                                    "PARTYTAP",
+                                    "OEKAKIDSTABLET",
+                                    "BARCODEBATTLER",
+                                    "MIRACLEPIANO",
+                                    "POKKUNMOGURAA",
+                                    "TOPRIDER",
+                                    "DOUBLEFISTED",
+                                    "FAMICOM3DSYSTEM",
+                                    "DOREMIKKOKEYBOARD",
+                                    "ROB",
+                                    "FAMICOMDATARECORDER",
+                                    "TURBOFILE",
+                                    "BATTLEBOX",
+                                    "FAMILYBASICKEYBOARD",
+                                    "PEC586KEYBOARD",
+                                    "BIT79KEYBOARD",
+                                    "SUBORKEYBOARD",
+                                    "SUBORKEYBOARDMOUSE1",
+                                    "SUBORKEYBOARDMOUSE2",
+                                    "SNESMOUSE",
+                                    "GENERICMULTICART",
+                                    "SNESCONTROLLERS",
+                                    "RACERMATEBICYCLE",
+                                    "UFORCE",
+                                    "LASTENTRY"};
 
 void ROM_load_from_disc(char *file_name, NES_ROM *rom) {
   rom->version = 0;
@@ -196,7 +194,7 @@ void ROM_load_from_disc(char *file_name, NES_ROM *rom) {
       case 1: rom->system_type = VS_SYSTEM; break;
       case 2: rom->system_type = PLAY_CHOISE; break;
       default:
-        LOG_WARNING("Unknown system type, using NTSC: %s\n",file_name);
+        LOG_WARNING("Unknown system type, using NTSC: %s\n", file_name);
         rom->system_type = NTSC;
         break;
       }
@@ -256,7 +254,7 @@ void ROM_load_from_disc(char *file_name, NES_ROM *rom) {
     switch (rom->data[13] & 0x0f) {
     case 0: rom->ppu_model = PPU_2C03;
     case 1:
-      LOG_WARNING("Unsupported PPU model 2C03: %s\n",file_name);
+      LOG_WARNING("Unsupported PPU model 2C03: %s\n", file_name);
       rom->ppu_model = PPU_2C03;
       break;
     case 2: rom->ppu_model = PPU_2C04A; break;
@@ -309,16 +307,15 @@ void ROM_load_from_disc(char *file_name, NES_ROM *rom) {
     rom->save_chr_ram_size = 0;
   }
 
-  
   // validation stuff
   if ((rom->PRG_size + rom->CHR_size + (rom->has_trainer ? 512 : 0)) +
           NES_ROM_HEADER_SIZE >
       size) {
-    LOG_ERROR("corrupted ROM file, larger than header tells: %s\n",file_name);
+    LOG_ERROR("corrupted ROM file, larger than header tells: %s\n", file_name);
   } else if ((rom->PRG_size + rom->CHR_size + (rom->has_trainer ? 512 : 0)) +
                  NES_ROM_HEADER_SIZE <
              size) {
-    LOG_ERROR("corrupted ROM file, smaller than header tells: %s\n",file_name);
+    LOG_ERROR("corrupted ROM file, smaller than header tells: %s\n", file_name);
   }
 
   // logging stuff
@@ -351,3 +348,68 @@ void ROM_load_from_disc(char *file_name, NES_ROM *rom) {
 }
 
 void ROM_free(NES_ROM *rom) { free(rom->data); }
+
+uint8_t *ROM_get_CHR_p(NES_ROM *rom) {
+  return &rom->data[NES_ROM_HEADER_SIZE + (rom->has_trainer ? 512 : 0) +
+                    rom->PRG_size];
+}
+
+uint8_t *ROM_get_PRG_p(NES_ROM *rom) {
+  return &rom->data[NES_ROM_HEADER_SIZE + (rom->has_trainer ? 512 : 0)];
+}
+
+const char *PALETTE[] = {
+    "\x80\x80\x80", "\x00\x3D\xA6", "\x00\x12\xB0", "\x44\x00\x96",
+    "\xA1\x00\x5E", "\xC7\x00\x28", "\xBA\x06\x00", "\x8C\x17\x00",
+    "\x5C\x2F\x00", "\x10\x45\x00", "\x05\x4A\x00", "\x00\x47\x2E",
+    "\x00\x41\x66", "\x00\x00\x00", "\x05\x05\x05", "\x05\x05\x05",
+    "\xC7\xC7\xC7", "\x00\x77\xFF", "\x21\x55\xFF", "\x82\x37\xFA",
+    "\xEB\x2F\xB5", "\xFF\x29\x50", "\xFF\x22\x00", "\xD6\x32\x00",
+    "\xC4\x62\x00", "\x35\x80\x00", "\x05\x8F\x00", "\x00\x8A\x55",
+    "\x00\x99\xCC", "\x21\x21\x21", "\x09\x09\x09", "\x09\x09\x09",
+    "\xFF\xFF\xFF", "\x0F\xD7\xFF", "\x69\xA2\xFF", "\xD4\x80\xFF",
+    "\xFF\x45\xF3", "\xFF\x61\x8B", "\xFF\x88\x33", "\xFF\x9C\x12",
+    "\xFA\xBC\x20", "\x9F\xE3\x0E", "\x2B\xF0\x35", "\x0C\xF0\xA4",
+    "\x05\xFB\xFF", "\x5E\x5E\x5E", "\x0D\x0D\x0D", "\x0D\x0D\x0D",
+    "\xFF\xFF\xFF", "\xA6\xFC\xFF", "\xB3\xEC\xFF", "\xDA\xAB\xEB",
+    "\xFF\xA8\xF9", "\xFF\xAB\xB3", "\xFF\xD2\xB0", "\xFF\xEF\xA6",
+    "\xFF\xF7\x9C", "\xD7\xE8\x95", "\xA6\xED\xAF", "\xA2\xF2\xDA",
+    "\x99\xFF\xFC", "\xDD\xDD\xDD", "\x11\x11\x11", "\x11\x11\x11"};
+
+#define LOADBMP_IMPLEMENTATION
+#include "loadbmp.h"
+#define COLOR_IDX(tile, row, pix)                                              \
+  ((((CHR_p[16 * tile + row + 0] & (0x80 >> pix)) >> (7 - pix))) << 1 |        \
+   ((CHR_p[16 * tile + row + 8] & (0x80 >> pix)) >> (7 - pix)))
+
+void ROM_dump_CHR_to_BMP(NES_ROM *rom, uint8_t *palette) {
+  uint8_t *CHR_p = ROM_get_CHR_p(rom);
+  const uint8_t tile_size_bpm = 8 * 8 * 3;
+  const uint8_t tile_size_chr = 16;
+
+  int32_t ntiles = rom->CHR_size / 16;
+  LOG("BMP n-tiles: %d\n", ntiles);
+  size_t bmp_file_size = tile_size_bpm * ntiles;
+
+  uint8_t *BMP_buf = malloc(bmp_file_size);
+
+  size_t buf_i = 0;
+  for (int tile = 0; tile < ntiles; ++tile) {
+    for (int row = 0; row < 8; ++row) {
+      for (int pix = 0; pix < 8; ++pix) {
+        uint8_t *color = &palette[COLOR_IDX(tile, row, pix)];
+        BMP_buf[buf_i++] = color[0];
+        BMP_buf[buf_i++] = color[1];
+        BMP_buf[buf_i++] = color[2];
+        printf("%d ", COLOR_IDX(tile, row, pix));
+      }
+      printf("\n");
+    }
+  }
+
+  unsigned int err =
+      loadbmp_encode_file("image.bmp", BMP_buf, 8, 8 * ntiles, LOADBMP_RGB);
+
+  if (err)
+    LOG_ERROR("LoadBMP Load Error: %u\n", err);
+}
