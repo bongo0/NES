@@ -131,7 +131,7 @@ typedef struct nes_rom {
   size_t size;
 
   size_t PRG_size;
-  size_t CHR_size;
+  size_t CHR_size; // if zero -> uses CHR RAM
   uint32_t save_ram_size;
   uint32_t work_ram_size;
   uint32_t chr_ram_size;

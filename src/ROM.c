@@ -376,8 +376,8 @@ const char *PALETTE[] = {
     "\xFF\xF7\x9C", "\xD7\xE8\x95", "\xA6\xED\xAF", "\xA2\xF2\xDA",
     "\x99\xFF\xFC", "\xDD\xDD\xDD", "\x11\x11\x11", "\x11\x11\x11"};
 
-#define LOADBMP_IMPLEMENTATION
-#include "loadbmp.h"
+//#define LOADBMP_IMPLEMENTATION
+//#include "loadbmp.h"
 #define COLOR_IDX(tile, row, pix)                                              \
   ((((CHR_p[16 * tile + row + 0] & (0x80 >> pix)) >> (7 - pix))) << 1 |        \
    ((CHR_p[16 * tile + row + 8] & (0x80 >> pix)) >> (7 - pix)))
@@ -385,7 +385,7 @@ const char *PALETTE[] = {
 void ROM_dump_CHR_to_BMP(NES_ROM *rom, uint8_t *palette) {
   uint8_t *CHR_p = ROM_get_CHR_p(rom);
   const uint8_t tile_size_bpm = 8 * 8 * 3;
-  const uint8_t tile_size_chr = 16;
+  //const uint8_t tile_size_chr = 16;
 
   int32_t ntiles = rom->CHR_size / 16;
   LOG("BMP n-tiles: %d\n", ntiles);
@@ -401,15 +401,15 @@ void ROM_dump_CHR_to_BMP(NES_ROM *rom, uint8_t *palette) {
         BMP_buf[buf_i++] = color[0];
         BMP_buf[buf_i++] = color[1];
         BMP_buf[buf_i++] = color[2];
-        printf("%d ", COLOR_IDX(tile, row, pix));
+        //printf("%d ", COLOR_IDX(tile, row, pix));
       }
-      printf("\n");
+      //printf("\n");
     }
   }
 
-  unsigned int err =
-      loadbmp_encode_file("image.bmp", BMP_buf, 8, 8 * ntiles, LOADBMP_RGB);
-
-  if (err)
-    LOG_ERROR("LoadBMP Load Error: %u\n", err);
+//  unsigned int err =
+//      loadbmp_encode_file("image.bmp", BMP_buf, 8, 8 * ntiles, LOADBMP_RGB);
+//
+//  if (err)
+//    LOG_ERROR("LoadBMP Load Error: %u\n", err);
 }

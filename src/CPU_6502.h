@@ -3,6 +3,8 @@
 
 #include "ROM.h"
 
+#include "BUS.h"
+
 #include <stdint.h>
 #include <stdio.h>
 
@@ -35,12 +37,6 @@ FILE *mycpu_log;
 
 #define CPU_MEM_ADDR_SIZE 0x10000
 
-#if 0
-#define CPU_RAM_SIZE 2048
-#else
-#define CPU_RAM_SIZE (1<<16)
-#endif
-
 #define CPU_VIDEO_RAM_SIZE 0x4000
 
 #define CPU_NMI_VECTOR 0xFFFA
@@ -70,18 +66,22 @@ typedef struct cpu_state_ {
   uint8_t raw_operand_abs_low; // for nestest.log testing
   uint8_t raw_operand_abs_high; // for nestest.log testing
   uint8_t raw_operand_zp; // for nestest.log testing
+  uint64_t cycles_accumulated;
 #endif
 
   uint8_t need_nmi;
   uint8_t last_need_nmi;
-  uint64_t cycles_accumulated;
 } CPU_state;
 
 // maybe make this opaque type
 typedef struct cpu_ {
   CPU_state state;
+
   CPU_state previous_state;// for logging
+  
   uint8_t ram[CPU_RAM_SIZE];
+
+  BUS *bus; // pointer to the connected bus
 } CPU_6502;
 
 typedef enum addr {
