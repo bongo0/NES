@@ -110,19 +110,19 @@ typedef void *(*opcode_func_t)(CPU_6502 *, CPU_addr_mode);
 
 CPU_6502 *CPU_init(CPU_6502 *cpu);
 void CPU_load_rom(CPU_6502 *cpu, NES_ROM *rom);
-CPU_state CPU_get_state(CPU_6502 *CPU);
-
+void CPU_reset(CPU_6502 *cpu);
 void CPU_print_state_(CPU_6502 *cpu, FILE *fd);
 void CPU_log_state_simple(CPU_6502 *cpu, FILE *fd, uint16_t last_pc,
                           uint8_t last_op);
 
-uint8_t CPU_get_status_flag(CPU_6502 *cpu, uint8_t flag);
 
-void CPU_load_to_memory(CPU_6502 *cpu, uint8_t *data, uint16_t size, uint16_t adr);
 
 // things that probably does not need to be public
 void CPU_exec(CPU_6502 *CPU);
 void CPU_exec_instruction(CPU_6502 *CPU, uint8_t op_code);
+void CPU_load_to_memory(CPU_6502 *cpu, uint8_t *data, uint16_t size, uint16_t adr);
+uint8_t CPU_get_status_flag(CPU_6502 *cpu, uint8_t flag);
+CPU_state CPU_get_state(CPU_6502 *CPU);
 opcode_func_t CPU_op_table[256];
 CPU_addr_mode CPU_addr_mode_table[256];
 
@@ -133,5 +133,7 @@ typedef struct op_cycles_t {
   uint8_t cross : 4;
 } CPU_op_cycles_t;
 CPU_op_cycles_t CPU_op_cycles_table[256];
+
+size_t CPU_disassemble(uint8_t *data, uint16_t size, char **out);
 
 #endif // CPU_6502_H

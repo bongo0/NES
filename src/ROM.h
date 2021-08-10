@@ -153,7 +153,11 @@ typedef struct nes_rom {
 } NES_ROM;
 
 void ROM_load_from_disc(char *file_name, NES_ROM *rom);
+uint8_t *ROM_get_CHR_p(NES_ROM *rom);
+uint8_t *ROM_get_PRG_p(NES_ROM *rom);
 void ROM_free(NES_ROM *rom);
+
+
 
 void ROM_dump_CHR_to_BMP(NES_ROM *rom, uint8_t *palette);
 #endif // NES_ROM_H

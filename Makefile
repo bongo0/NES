@@ -21,8 +21,8 @@ bin/nes: $(OBJS) $(DEPS_OBJS)
 $(OBJS): obj/%.o: src/%.c $(HEADERS)
 	$(CC) $(CFLAGS) -c -o $@ $< $(INCLUDES)
 
-test/bin/%: test/%.c $(LIB_OBJS)
-	$(CC) $(CFLAGS) $< $(LIB_OBJS) -o $@ -lcriterion
+test/bin/%: test/%.c $(LIB_OBJS) $(DEPS_OBJS)
+	$(CC) $(CFLAGS) $< $(LIB_OBJS) $(DEPS_OBJS) -o $@ $(INCLUDES) -lcriterion
 
 test/bin:
 	mkdir $@

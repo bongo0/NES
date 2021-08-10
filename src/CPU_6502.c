@@ -5,6 +5,7 @@
 
 uint16_t CPU_get_operand(CPU_6502 *cpu);
 uint8_t CPU_get_op(CPU_6502 *cpu);
+uint8_t CPU_read_memory(CPU_6502 *cpu, uint16_t addr);
 
 CPU_6502 *CPU_init(CPU_6502 *cpu) {
   // CPU registers                     = at power-up
@@ -21,6 +22,24 @@ CPU_6502 *CPU_init(CPU_6502 *cpu) {
 
   cpu->state.cycles_accumulated = 0;
   return cpu;
+}
+
+void CPU_reset(CPU_6502 *cpu) {
+  cpu->state.A = 0;
+  cpu->state.X = 0;
+  cpu->state.Y = 0;
+  cpu->state.SP = 0xFD;
+  cpu->state.P = 0 | CPU_STATUS_RESERVED;
+
+  cpu->state.operand = 0;
+  cpu->state.page_cross = 0;
+
+  // hardcoded address where to read the PC and continue exec after reset
+  uint8_t low = CPU_read_memory(cpu, CPU_RESET_VECTOR);
+  uint8_t high = CPU_read_memory(cpu, CPU_RESET_VECTOR + 1);
+  cpu->state.PC = low | (high << 8);
+
+  cpu->state.cycle_count = 8; // reset takes 8 cycles
 }
 
 uint8_t CPU_get_status_flag(CPU_6502 *cpu, uint8_t flag) {
@@ -424,6 +443,39 @@ void CPU_set_register(CPU_6502 *cpu, uint8_t *reg, uint8_t val) {
   }
   *reg = val;
 }
+
+//######################################################
+//    INTERUPTS
+void IRQ(CPU_6502 *cpu) {
+  if (!CPU_get_status_flag(cpu, CPU_STATUS_INTERUPT_DISABLE)) {
+    CPU_stack_push(cpu, (uint8_t)(cpu->state.PC >> 8));
+    CPU_stack_push(cpu, (uint8_t)cpu->state.PC);
+
+    CPU_stack_push(cpu, cpu->state.P | CPU_STATUS_RESERVED);
+    CPU_set_status_flags(cpu, CPU_STATUS_INTERUPT_DISABLE);
+
+    uint8_t low = CPU_read_memory(cpu, CPU_IRQ_VECTOR);
+    uint8_t high = CPU_read_memory(cpu, CPU_IRQ_VECTOR);
+    cpu->state.PC = low | (high << 8);
+  }
+
+  cpu->state.cycle_count = 7;
+}
+
+void NMI(CPU_6502 *cpu) {
+  CPU_stack_push(cpu, (uint8_t)(cpu->state.PC >> 8));
+  CPU_stack_push(cpu, (uint8_t)cpu->state.PC);
+
+  CPU_stack_push(cpu, cpu->state.P | CPU_STATUS_RESERVED);
+  CPU_set_status_flags(cpu, CPU_STATUS_INTERUPT_DISABLE);
+
+  uint8_t low = CPU_read_memory(cpu, CPU_NMI_VECTOR);
+  uint8_t high = CPU_read_memory(cpu, CPU_NMI_VECTOR);
+  cpu->state.PC = low | (high << 8);
+
+  cpu->state.cycle_count = 8;
+}
+
 //######################################################
 //    INSTRUCTIONS
 // void* (CPU_6502 *cpu, CPU_addr_mode mode){return "";}
@@ -1325,4 +1377,44 @@ void CPU_load_rom(CPU_6502 *cpu, NES_ROM *rom) {
   // only used by some games that were modified to run on different hardware
   // from the original cartridges, such as early RAM cartridges and emulators,
   // and which put some additional compatibility code into those address ranges.
+}
+
+size_t CPU_disassemble(uint8_t *data, uint16_t size, char **out) {
+  *out = calloc(size * 20, 1);
+  if (out == NULL)
+    return 0;
+  char *wpos = *out;
+  size_t total_size = 0;
+  uint8_t op;
+  uint16_t rel_adr = 0;
+  for (uint16_t adr = 0; adr < size;) {
+    op = data[adr];
+
+    uint8_t operand;
+    uint8_t hi;
+    // clang-format off
+    int n = sprintf(wpos,"%04x %s", rel_adr, CPU_op_names[op]);wpos+=n;total_size+=n;
+    switch (CPU_addr_mode_table[op]) {
+      case IMMIDIATE: operand=data[++adr];                 n=sprintf(wpos,"  %02x     imm   \n",operand);wpos+=n;total_size+=n;rel_adr+=2;break;
+      case ZEROPAGE: operand=data[++adr];                  n=sprintf(wpos,"  %02x     zero  \n",operand);wpos+=n;total_size+=n;rel_adr+=2;break;
+      case ZEROPAGE_X: operand=data[++adr];                n=sprintf(wpos,"  %02x     zero X\n",operand);wpos+=n;total_size+=n;rel_adr+=2;break;
+      case ZEROPAGE_Y: operand=data[++adr];                n=sprintf(wpos,"  %02x     zero Y\n",operand);wpos+=n;total_size+=n;rel_adr+=2;break;
+      case ABSOLUTE: operand=data[++adr];hi=data[++adr];   n=sprintf(wpos,"  %02x %02x  abs   \n",operand,hi);wpos+=n;total_size+=n;rel_adr+=3;break;
+      case ABSOLUTE_X: operand=data[++adr];hi=data[++adr]; n=sprintf(wpos,"  %02x %02x  abs X \n",operand,hi);wpos+=n;total_size+=n;rel_adr+=3;break;
+      case ABSOLUTE_Y: operand=data[++adr];hi=data[++adr]; n=sprintf(wpos,"  %02x %02x  abs Y \n",operand,hi);wpos+=n;total_size+=n;rel_adr+=3;break;
+      case INDIRECT: operand=data[++adr];hi=data[++adr];   n=sprintf(wpos,"  %02x %02x  ind   \n",operand,hi);wpos+=n;total_size+=n;rel_adr+=3;break;
+      case INDIRECT_X: operand=data[++adr];hi=data[++adr]; n=sprintf(wpos,"  %02x %02x  ind X \n",operand,hi);wpos+=n;total_size+=n;rel_adr+=3;break;
+      case INDIRECT_Y: operand=data[++adr];hi=data[++adr]; n=sprintf(wpos,"  %02x %02x  ind Y \n",operand,hi);wpos+=n;total_size+=n;rel_adr+=3;break;
+      case RELATIVE: operand=data[++adr];                  n=sprintf(wpos,"  %02x     rel   \n",operand);wpos+=n;total_size+=n;rel_adr+=2;break;
+      case IMPLICIT: operand=0;++adr;                      n=sprintf(wpos,"         imp   \n");wpos+=n;total_size+=n;rel_adr+=1;break;
+      case ACCUMULATE: operand=0;++adr;                    n=sprintf(wpos,"         acc   \n");wpos+=n;total_size+=n;rel_adr+=1;break;
+      case M__AbsYW: operand=data[++adr];hi=data[++adr];   n=sprintf(wpos,"  %02x %02x  abs YW\n",operand,hi);wpos+=n;total_size+=n;rel_adr+=3;break;
+      case M__AbsXW: operand=data[++adr];hi=data[++adr];   n=sprintf(wpos,"  %02x %02x  abs XW\n",operand,hi);wpos+=n;total_size+=n;rel_adr+=3;break;
+      case M__IndYW: operand=data[++adr];hi=data[++adr];   n=sprintf(wpos,"  %02x %02x  ind YW\n",operand,hi);wpos+=n;total_size+=n;rel_adr+=3;break;
+      case NONE: ++adr;n=sprintf(wpos,"               \n");wpos+=n;total_size+=n;rel_adr+=1;break;
+      default: ++adr;  n=sprintf(wpos,"ERROR          \n");wpos+=n;total_size+=n;rel_adr+=1;break;
+  }
+//clang-format on
+  }
+  return total_size;
 }
