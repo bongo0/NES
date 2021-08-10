@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include "logger.h"
+#include "mappers.h"
 
 #define NES_ROM_SIZE 0x1000
 
@@ -126,11 +127,17 @@ const char *NES_SYSTEM_TYPE_STR[8];
 const char *NES_VS_SYSTEM_TYPE_STR[7];
 const char *NES_INPUT_TYPE_STR[47];
 
+
+
+// NES ROM / CARTRIDGE
 typedef struct nes_rom {
+  uint8_t version;
+  
   uint8_t *data;
   size_t size;
-
+  uint8_t *PRG_p;
   size_t PRG_size;
+  uint8_t *CHR_p;
   size_t CHR_size; // if zero -> uses CHR RAM
   uint32_t save_ram_size;
   uint32_t work_ram_size;
@@ -148,13 +155,16 @@ typedef struct nes_rom {
 
   uint16_t mapper_id;
   uint8_t sub_mapper_id;
-
-  uint8_t version;
+  Mapper mapper;
 } NES_ROM;
 
 void ROM_load_from_disc(char *file_name, NES_ROM *rom);
 uint8_t *ROM_get_CHR_p(NES_ROM *rom);
 uint8_t *ROM_get_PRG_p(NES_ROM *rom);
+uint8_t ROM_cpu_read(NES_ROM *rom, uint16_t adr, uint8_t *data_out);
+uint8_t ROM_cpu_write(NES_ROM *rom, uint16_t adr, uint8_t data);
+uint8_t ROM_ppu_read(NES_ROM *rom, uint16_t adr, uint8_t *data_out);
+uint8_t ROM_ppu_write(NES_ROM *rom, uint16_t adr, uint8_t data);
 void ROM_free(NES_ROM *rom);
 
 

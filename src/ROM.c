@@ -69,6 +69,22 @@ const char *NES_INPUT_TYPE_STR[] = {"INP_UNSPECIFIED",
                                     "UFORCE",
                                     "LASTENTRY"};
 
+void ROM_init_mapper(NES_ROM *rom) {
+  switch (rom->mapper_id) {
+  case 0:
+    rom->mapper.cpu_read = &Mapper000_cpu_read;
+    rom->mapper.cpu_write = &Mapper000_cpu_write;
+    rom->mapper.ppu_read = &Mapper000_ppu_read;
+    rom->mapper.ppu_write = &Mapper000_ppu_write;
+    rom->mapper.state = malloc(sizeof(Mapper000));
+    ((Mapper000 *)rom->mapper.state)->CHR_size = rom->CHR_size;
+    ((Mapper000 *)rom->mapper.state)->PRG_size = rom->PRG_size;
+    break;
+  default: break;
+  }
+}
+
+
 void ROM_load_from_disc(char *file_name, NES_ROM *rom) {
   rom->version = 0;
   FILE *f;
@@ -312,11 +328,30 @@ void ROM_load_from_disc(char *file_name, NES_ROM *rom) {
           NES_ROM_HEADER_SIZE >
       size) {
     LOG_ERROR("corrupted ROM file, larger than header tells: %s\n", file_name);
+    free(rom->data);
+    rom->size = 0;
+    rom->data = NULL;
+    return;
   } else if ((rom->PRG_size + rom->CHR_size + (rom->has_trainer ? 512 : 0)) +
                  NES_ROM_HEADER_SIZE <
              size) {
     LOG_ERROR("corrupted ROM file, smaller than header tells: %s\n", file_name);
+    free(rom->data);
+    rom->size = 0;
+    rom->data = NULL;
+    return;
   }
+
+  // set up CHR and PRG data pointers
+  if (rom->CHR_size == 0) {
+    rom->CHR_p = NULL;
+  } else {
+    rom->CHR_p = &rom->data[NES_ROM_HEADER_SIZE + (rom->has_trainer ? 512 : 0) +
+                            rom->PRG_size];
+  }
+  rom->PRG_p = &rom->data[NES_ROM_HEADER_SIZE + (rom->has_trainer ? 512 : 0)];
+
+  ROM_init_mapper(rom);
 
   // logging stuff
   LOG_SUCCESS(
@@ -347,7 +382,12 @@ void ROM_load_from_disc(char *file_name, NES_ROM *rom) {
       rom->chr_ram_size, rom->save_chr_ram_size);
 }
 
-void ROM_free(NES_ROM *rom) { free(rom->data); }
+void ROM_free(NES_ROM *rom) {
+  free(rom->data);
+  free(rom->mapper.state);
+  rom->size = 0;
+  rom->data = NULL;
+}
 
 uint8_t *ROM_get_CHR_p(NES_ROM *rom) {
   return &rom->data[NES_ROM_HEADER_SIZE + (rom->has_trainer ? 512 : 0) +
@@ -356,6 +396,42 @@ uint8_t *ROM_get_CHR_p(NES_ROM *rom) {
 
 uint8_t *ROM_get_PRG_p(NES_ROM *rom) {
   return &rom->data[NES_ROM_HEADER_SIZE + (rom->has_trainer ? 512 : 0)];
+}
+
+uint8_t ROM_cpu_read(NES_ROM *rom, uint16_t adr, uint8_t *data_out) {
+  uint16_t map_adr = 0;
+  if(rom->mapper.cpu_read(rom->mapper.state,adr,&map_adr)){
+    (*data_out) = rom->PRG_p[map_adr];
+    return 1;
+  }
+  return 0;
+}
+
+uint8_t ROM_cpu_write(NES_ROM *rom, uint16_t adr, uint8_t data) {
+    uint16_t map_adr = 0;
+  if(rom->mapper.cpu_write(rom->mapper.state,adr,&map_adr)){
+    rom->PRG_p[map_adr] = data;
+    return 1;
+  }
+  return 0;
+}
+
+uint8_t ROM_ppu_read(NES_ROM *rom, uint16_t adr, uint8_t *data_out) {
+  uint16_t map_adr = 0;
+  if(rom->mapper.ppu_read(rom->mapper.state,adr,&map_adr)){
+    (*data_out) = rom->CHR_p[map_adr];
+    return 1;
+  }
+  return 0;
+}
+
+uint8_t ROM_ppu_write(NES_ROM *rom, uint16_t adr, uint8_t data) {
+    uint16_t map_adr = 0;
+  if(rom->mapper.ppu_write(rom->mapper.state,adr,&map_adr)){
+    rom->CHR_p[map_adr] = data;
+    return 1;
+  }
+  return 0;
 }
 
 const char *PALETTE[] = {
@@ -385,7 +461,7 @@ const char *PALETTE[] = {
 void ROM_dump_CHR_to_BMP(NES_ROM *rom, uint8_t *palette) {
   uint8_t *CHR_p = ROM_get_CHR_p(rom);
   const uint8_t tile_size_bpm = 8 * 8 * 3;
-  //const uint8_t tile_size_chr = 16;
+  // const uint8_t tile_size_chr = 16;
 
   int32_t ntiles = rom->CHR_size / 16;
   LOG("BMP n-tiles: %d\n", ntiles);
@@ -401,15 +477,15 @@ void ROM_dump_CHR_to_BMP(NES_ROM *rom, uint8_t *palette) {
         BMP_buf[buf_i++] = color[0];
         BMP_buf[buf_i++] = color[1];
         BMP_buf[buf_i++] = color[2];
-        //printf("%d ", COLOR_IDX(tile, row, pix));
+        // printf("%d ", COLOR_IDX(tile, row, pix));
       }
-      //printf("\n");
+      // printf("\n");
     }
   }
 
-//  unsigned int err =
-//      loadbmp_encode_file("image.bmp", BMP_buf, 8, 8 * ntiles, LOADBMP_RGB);
-//
-//  if (err)
-//    LOG_ERROR("LoadBMP Load Error: %u\n", err);
+  //  unsigned int err =
+  //      loadbmp_encode_file("image.bmp", BMP_buf, 8, 8 * ntiles, LOADBMP_RGB);
+  //
+  //  if (err)
+  //    LOG_ERROR("LoadBMP Load Error: %u\n", err);
 }

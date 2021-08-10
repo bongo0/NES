@@ -1,5 +1,9 @@
 #include "CPU_6502.h"
 
+//#include "BUS.h"
+void BUS_cpu_write(NES_BUS *nes, uint16_t adr, uint8_t data);
+uint8_t BUS_cpu_read(NES_BUS *nes, uint16_t adr);
+
 #include <memory.h>
 #include <stdint.h>
 
@@ -7,7 +11,7 @@ uint16_t CPU_get_operand(CPU_6502 *cpu);
 uint8_t CPU_get_op(CPU_6502 *cpu);
 uint8_t CPU_read_memory(CPU_6502 *cpu, uint16_t addr);
 
-CPU_6502 *CPU_init(CPU_6502 *cpu) {
+CPU_6502 *CPU_init(CPU_6502 *cpu, NES_BUS *bus) {
   // CPU registers                     = at power-up
   cpu->state.A = 0;     // accumulator          = 0
   cpu->state.X = 0;     // X register           = 0
@@ -19,8 +23,9 @@ CPU_6502 *CPU_init(CPU_6502 *cpu) {
   cpu->state.cycle_count = 0;
   cpu->state.page_cross = 0;
   cpu->state.operand = 0;
-
   cpu->state.cycles_accumulated = 0;
+
+  cpu->bus = bus;
   return cpu;
 }
 
@@ -181,13 +186,16 @@ CPU_state CPU_get_state(CPU_6502 *CPU) { return CPU->state; }
 
 void CPU_load_to_memory(CPU_6502 *cpu, uint8_t *data, uint16_t size,
                         uint16_t adr) {
-  memcpy(&cpu->ram[adr], data, size);
+  // memcpy(&cpu->ram[adr], data, size);
 }
 
-uint8_t CPU_read_memory(CPU_6502 *CPU, uint16_t adr) { return CPU->ram[adr]; }
+uint8_t CPU_read_memory(CPU_6502 *CPU, uint16_t adr) {
+  return BUS_cpu_read(CPU->bus, adr); // CPU->ram[adr];
+}
 
 void CPU_write_memory(CPU_6502 *cpu, uint16_t adr, uint8_t val) {
-  cpu->ram[adr] = val;
+  // cpu->ram[adr] = val;
+  BUS_cpu_write(cpu->bus, adr, val);
 }
 
 // stack location ($0100-$01FF)

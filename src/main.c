@@ -1,3 +1,4 @@
+#include "../src/BUS.h"
 #include "../src/CPU_6502.h"
 #include "../src/ROM.h"
 #include "GUI.h"

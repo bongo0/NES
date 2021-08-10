@@ -3,7 +3,8 @@
 
 #include "ROM.h"
 
-#include "BUS.h"
+//#include "BUS.h"
+typedef struct bus NES_BUS;
 
 #include <stdint.h>
 #include <stdio.h>
@@ -76,12 +77,9 @@ typedef struct cpu_state_ {
 // maybe make this opaque type
 typedef struct cpu_ {
   CPU_state state;
-
   CPU_state previous_state;// for logging
-  
-  uint8_t ram[CPU_RAM_SIZE];
-
-  BUS *bus; // pointer to the connected bus
+  //uint8_t ram[CPU_RAM_SIZE];
+  NES_BUS *bus; // pointer to the connected bus
 } CPU_6502;
 
 typedef enum addr {
@@ -108,7 +106,7 @@ typedef enum addr {
 
 typedef void *(*opcode_func_t)(CPU_6502 *, CPU_addr_mode);
 
-CPU_6502 *CPU_init(CPU_6502 *cpu);
+CPU_6502 *CPU_init(CPU_6502 *cpu, NES_BUS *bus);
 void CPU_load_rom(CPU_6502 *cpu, NES_ROM *rom);
 void CPU_reset(CPU_6502 *cpu);
 void CPU_print_state_(CPU_6502 *cpu, FILE *fd);

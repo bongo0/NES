@@ -1,3 +1,4 @@
+#include "../src/BUS.h"
 #include "../src/CPU_6502.h"
 #include <stdio.h>
 
@@ -10,21 +11,21 @@ Test(cpu_instruction_test, nestest_log) {
   FILE *expected = fopen("test/small_nestest.log","r");
   cr_assert(mycpu_log!=NULL,"test/mycpu.log file error");
   cr_assert(expected!=NULL,"test/small_nestest.log file error");
-  CPU_6502 cpu;
-  CPU_init(&cpu);
 
+  NES_BUS nes;
   NES_ROM rom;
-  ROM_load_from_disc("test/nestest.nes", &rom);
+  nes.rom = &rom;
+  
+  CPU_init(&nes.cpu,&nes);
+  ROM_load_from_disc("test/nestest.nes", nes.rom);
 
   // setup state to run all the tests in the rom
-  cpu.state.PC=0xc000;
-  cpu.state.P=0x24;
-  cpu.state.cycles_accumulated+=7;
-  CPU_load_to_memory(&cpu, &rom.data[16], 0x4000, 0xc000);
-  CPU_load_to_memory(&cpu, &rom.data[16], 0x4000, 0x8000);
+  nes.cpu.state.PC=0xc000;
+  nes.cpu.state.P=0x24;
+  nes.cpu.state.cycles_accumulated+=7;
 
   for (int i = 0; i < 8991; ++i){
-     CPU_exec(&cpu);
+     CPU_exec(&nes.cpu);
   }
 
   fflush(mycpu_log);
