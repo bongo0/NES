@@ -215,33 +215,31 @@ uint8_t CPU_get_op(CPU_6502 *CPU) {
   return CPU_read_memory(CPU, CPU->state.PC);
 }
 
-void CPU_exec(CPU_6502 *cpu) {
-  cpu->previous_state = cpu->state;
-  cpu->state.page_cross = 0;
+void CPU_tick(CPU_6502 *cpu) {
+  if (cpu->state.cycle_count == 0) {
+    cpu->previous_state = cpu->state;
+    cpu->state.page_cross = 0;
 
-  uint16_t last_PC = cpu->state.PC;
-  uint8_t op = CPU_get_op(cpu);
-  CPU_op_cycles_t ct = CPU_op_cycles_table[op];
-  cpu->state.operand = CPU_get_operand(cpu);
-  cpu->state.PC++;
-  CPU_exec_instruction(cpu, op);
+    uint16_t last_PC = cpu->state.PC;
+    uint8_t op = CPU_get_op(cpu);
+    cpu->state.operand = CPU_get_operand(cpu);
+    cpu->state.PC++;
+    CPU_exec_instruction(cpu, op);
 
-  // cycles
-  for (uint8_t i = 0; i < ct.cycles; ++i) {
-    // cycle
-    cpu->state.cycles_accumulated++;
-  }
-  if (ct.cross && cpu->state.page_cross) {
-    // cycle
-    cpu->state.cycles_accumulated++;
-  }
-  if (cpu->state.branch_taken) {
-    cpu->state.cycles_accumulated++;
-  }
-  // printf("\n");
+    // cycles
+    CPU_op_cycles_t ct = CPU_op_cycles_table[op];
+    cpu->state.cycle_count += ct.cycles;
+    if (ct.cross && cpu->state.page_cross)
+      cpu->state.cycle_count++;
+    if (cpu->state.branch_taken)
+      cpu->state.cycle_count++;
+
 #ifdef NESTEST_LOG_COMP
-  CPU_log_state_simple(cpu, mycpu_log, last_PC, op);
+    CPU_log_state_simple(cpu, mycpu_log, last_PC, op);
 #endif
+  }
+  cpu->state.cycles_accumulated++;
+  cpu->state.cycle_count--;
 }
 
 inline void CPU_exec_instruction(CPU_6502 *cpu, uint8_t op_code) {
@@ -1422,6 +1420,49 @@ size_t CPU_disassemble(uint8_t *data, uint16_t size, char **out) {
       case NONE: ++adr;n=sprintf(wpos,"               \n");wpos+=n;total_size+=n;rel_adr+=1;break;
       default: ++adr;  n=sprintf(wpos,"ERROR          \n");wpos+=n;total_size+=n;rel_adr+=1;break;
   }
+//clang-format on
+  }
+  return total_size;
+}
+
+size_t CPU_disassemble_arr(uint8_t *data, uint16_t size, char ***out) {
+  *out = (char**)malloc( size*sizeof(char*));
+  if (out == NULL)
+    return 0;
+  char *wpos;
+  size_t total_size = 0;
+  uint8_t op;
+  uint16_t rel_adr = 0;
+  for (uint16_t adr = 0; adr < size;) {
+    op = data[adr];
+if(adr==0x0008)printf("wwwtttfffff\n");
+    uint8_t operand;
+    uint8_t hi;
+    (*out)[adr] = (char*)malloc(25*sizeof(char));
+    wpos = (*out)[adr];
+    // clang-format off
+    int n = sprintf(wpos,"%04x %s", adr, CPU_op_names[op]);wpos+=n;total_size+=n;
+    switch (CPU_addr_mode_table[op]) {
+      case IMMIDIATE: operand=data[++adr];                 n=sprintf(wpos,"  %02x     imm   ",operand);wpos+=n;total_size+=n;rel_adr+=2;break;
+      case ZEROPAGE: operand=data[++adr];                  n=sprintf(wpos,"  %02x     zero  ",operand);wpos+=n;total_size+=n;rel_adr+=2;break;
+      case ZEROPAGE_X: operand=data[++adr];                n=sprintf(wpos,"  %02x     zero X",operand);wpos+=n;total_size+=n;rel_adr+=2;break;
+      case ZEROPAGE_Y: operand=data[++adr];                n=sprintf(wpos,"  %02x     zero Y",operand);wpos+=n;total_size+=n;rel_adr+=2;break;
+      case ABSOLUTE: operand=data[++adr];hi=data[++adr];   n=sprintf(wpos,"  %02x %02x  abs   ",operand,hi);wpos+=n;total_size+=n;rel_adr+=3;break;
+      case ABSOLUTE_X: operand=data[++adr];hi=data[++adr]; n=sprintf(wpos,"  %02x %02x  abs X ",operand,hi);wpos+=n;total_size+=n;rel_adr+=3;break;
+      case ABSOLUTE_Y: operand=data[++adr];hi=data[++adr]; n=sprintf(wpos,"  %02x %02x  abs Y ",operand,hi);wpos+=n;total_size+=n;rel_adr+=3;break;
+      case INDIRECT: operand=data[++adr];hi=data[++adr];   n=sprintf(wpos,"  %02x %02x  ind   ",operand,hi);wpos+=n;total_size+=n;rel_adr+=3;break;
+      case INDIRECT_X: operand=data[++adr];hi=data[++adr]; n=sprintf(wpos,"  %02x %02x  ind X ",operand,hi);wpos+=n;total_size+=n;rel_adr+=3;break;
+      case INDIRECT_Y: operand=data[++adr];hi=data[++adr]; n=sprintf(wpos,"  %02x %02x  ind Y ",operand,hi);wpos+=n;total_size+=n;rel_adr+=3;break;
+      case RELATIVE: operand=data[++adr];                  n=sprintf(wpos,"  %02x     rel   ",operand);wpos+=n;total_size+=n;rel_adr+=2;break;
+      case IMPLICIT: operand=0;                            n=sprintf(wpos,"         imp   ");wpos+=n;total_size+=n;rel_adr+=1;break;
+      case ACCUMULATE: operand=0;                          n=sprintf(wpos,"         acc   ");wpos+=n;total_size+=n;rel_adr+=1;break;
+      case M__AbsYW: operand=data[++adr];hi=data[++adr];   n=sprintf(wpos,"  %02x %02x  abs YW",operand,hi);wpos+=n;total_size+=n;rel_adr+=3;break;
+      case M__AbsXW: operand=data[++adr];hi=data[++adr];   n=sprintf(wpos,"  %02x %02x  abs XW",operand,hi);wpos+=n;total_size+=n;rel_adr+=3;break;
+      case M__IndYW: operand=data[++adr];hi=data[++adr];   n=sprintf(wpos,"  %02x %02x  ind YW",operand,hi);wpos+=n;total_size+=n;rel_adr+=3;break;
+      case NONE:       n=sprintf(wpos,"               ");wpos+=n;total_size+=n;rel_adr+=1;break;
+      default:         n=sprintf(wpos,"ERROR          ");wpos+=n;total_size+=n;rel_adr+=1;break;
+  }
+  ++adr;
 //clang-format on
   }
   return total_size;

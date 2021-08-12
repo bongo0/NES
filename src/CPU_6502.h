@@ -9,7 +9,7 @@ typedef struct bus NES_BUS;
 #include <stdint.h>
 #include <stdio.h>
 
-#define NESTEST_LOG_COMP
+//#define NESTEST_LOG_COMP
 
 #ifdef NESTEST_LOG_COMP 
 FILE *mycpu_log;
@@ -48,7 +48,7 @@ FILE *mycpu_log;
 #define CPU_CLOCK_PAL 1662607
 #define CPU_CLOCK_DENDY 1773448
 
-typedef struct cpu_state_ {
+typedef struct {
   // CPU registers                     = at power-up
   uint8_t A;   // accumulator          = 0
   uint8_t X;   // X register           = 0
@@ -62,27 +62,27 @@ typedef struct cpu_state_ {
   uint8_t page_cross; // flag for when page is crossed
   uint8_t branch_taken;
 
-#ifdef NESTEST_LOG_COMP
+//#ifdef NESTEST_LOG_COMP
   uint8_t raw_operand_ind; // for nestest.log testing
   uint8_t raw_operand_abs_low; // for nestest.log testing
   uint8_t raw_operand_abs_high; // for nestest.log testing
   uint8_t raw_operand_zp; // for nestest.log testing
+//#endif
   uint64_t cycles_accumulated;
-#endif
 
   uint8_t need_nmi;
   uint8_t last_need_nmi;
 } CPU_state;
 
 // maybe make this opaque type
-typedef struct cpu_ {
+typedef struct {
   CPU_state state;
   CPU_state previous_state;// for logging
   //uint8_t ram[CPU_RAM_SIZE];
   NES_BUS *bus; // pointer to the connected bus
 } CPU_6502;
 
-typedef enum addr {
+typedef enum {
   IMMIDIATE,
   ZEROPAGE,
   ZEROPAGE_X,
@@ -116,7 +116,7 @@ void CPU_log_state_simple(CPU_6502 *cpu, FILE *fd, uint16_t last_pc,
 
 
 // things that probably does not need to be public
-void CPU_exec(CPU_6502 *CPU);
+void CPU_tick(CPU_6502 *CPU);
 void CPU_exec_instruction(CPU_6502 *CPU, uint8_t op_code);
 void CPU_load_to_memory(CPU_6502 *cpu, uint8_t *data, uint16_t size, uint16_t adr);
 uint8_t CPU_get_status_flag(CPU_6502 *cpu, uint8_t flag);
@@ -126,12 +126,12 @@ CPU_addr_mode CPU_addr_mode_table[256];
 
 char *CPU_op_names[256];
 
-typedef struct op_cycles_t {
+typedef struct {
   uint8_t cycles : 4;
   uint8_t cross : 4;
 } CPU_op_cycles_t;
 CPU_op_cycles_t CPU_op_cycles_table[256];
 
 size_t CPU_disassemble(uint8_t *data, uint16_t size, char **out);
-
+size_t CPU_disassemble_arr(uint8_t *data, uint16_t size, char ***out);
 #endif // CPU_6502_H

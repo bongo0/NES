@@ -24,8 +24,8 @@ Test(cpu_instruction_test, nestest_log) {
   nes.cpu.state.P=0x24;
   nes.cpu.state.cycles_accumulated+=7;
 
-  for (int i = 0; i < 8991; ++i){
-     CPU_exec(&nes.cpu);
+  for (int i = 0; i < 26553; ++i){ // takes 26553 cycles
+     CPU_tick(&nes.cpu);
   }
 
   fflush(mycpu_log);

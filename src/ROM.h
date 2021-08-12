@@ -20,7 +20,7 @@
 
 #define NES20 20
 
-typedef enum ppu_model {
+typedef enum {
   PPU_2C02 = 0,
   PPU_2C03 = 1,
   PPU_2C04A = 2,
@@ -34,14 +34,14 @@ typedef enum ppu_model {
   PPU_2C05E = 10
 } NES_PPU_MODEL;
 
-typedef enum mir_ {
+typedef enum {
   MIRROR_FOUR_SCREENS,
   MIRROR_VERTICAL,
   MIRROR_HORIZONTAL
 } NES_MIRRORING_TYPE;
 
 
-typedef enum reg_ {
+typedef enum {
   NTSC,
   PAL,
   DENDY,
@@ -52,7 +52,7 @@ typedef enum reg_ {
   SYS_UNSPECIFIED
 } NES_SYSTEM_TYPE;
 
-typedef enum vs_system_type {
+typedef enum {
   VS_DEFAULT,
   RBIBASEBALL_PROTECTION,
   TKOBOXING_PROTECTION,
@@ -71,7 +71,7 @@ typedef enum vs_system_type {
   case 3: rom->system_type = DENDY; break;                                     \
   }
 
-typedef enum inp_ {
+typedef enum {
   INP_UNSPECIFIED,
   STANDARDCONTROLLERS,
   FOURSCORE,
@@ -130,7 +130,7 @@ const char *NES_INPUT_TYPE_STR[47];
 
 
 // NES ROM / CARTRIDGE
-typedef struct nes_rom {
+typedef struct {
   uint8_t version;
   
   uint8_t *data;

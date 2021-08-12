@@ -57,7 +57,7 @@ void GUI_init(GUI_context *ctx) {
     /*struct nk_font *cousine = nk_font_atlas_add_from_file(atlas,
      * "../../../extra_font/Cousine-Regular.ttf", 13, 0);*/
     nk_sdl_font_stash_end();
-    /*nk_style_load_all_cursors(ctx, atlas->cursors);*/
+  /*nk_style_load_all_cursors(ctx, atlas->cursors);*/
     /*nk_style_set_font(ctx, &roboto->handle);*/}
     ctx->bg.r = 0.10f;
     ctx->bg.g = 0.18f;
@@ -154,18 +154,109 @@ void Menu_bar(GUI_context *gui_ctx) {
   nk_end(ctx);
 }
 
+void cpu_state(GUI_context *gui_ctx, const CPU_state state) {
+  struct nk_context *ctx = gui_ctx->nk_ctx;
+  if (nk_begin(ctx, "cpu", nk_rect(gui_ctx->win_width - 230, 30, 230, 100),
+               NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_TITLE)) {
 
-void asm_txt(GUI_context *gui_ctx, char *text, size_t text_len) {
+    nk_layout_row_static(ctx, 8, 17, 8);
+    char str[64];
+
+    //    NVss DIZC
+    //    |||| ||||
+    //    |||| |||+- Carry
+    //    |||| ||+-- Zero
+    //    |||| |+--- Interrupt Disable
+    //    |||| +---- Decimal
+    //    ||++------ No CPU effect, see: the B flag
+    //    |+-------- Overflow
+    //    +--------- Negative
+    // nk_layout_row_static(ctx, 0, 8, 8);
+    struct nk_rect bounds = nk_widget_bounds(ctx);
+    nk_label(ctx, "N", NK_TEXT_LEFT);
+    if (nk_input_is_mouse_hovering_rect(&ctx->input, bounds))
+      nk_tooltip(ctx, "  Negative");
+
+    bounds = nk_widget_bounds(ctx);
+    nk_label(ctx, "O", NK_TEXT_LEFT);
+    if (nk_input_is_mouse_hovering_rect(&ctx->input, bounds))
+      nk_tooltip(ctx, "  Overflow");
+
+    bounds = nk_widget_bounds(ctx);
+    nk_label(ctx, "U", NK_TEXT_LEFT);
+    if (nk_input_is_mouse_hovering_rect(&ctx->input, bounds))
+      nk_tooltip(ctx, "  Unused");
+
+    bounds = nk_widget_bounds(ctx);
+    nk_label(ctx, "B", NK_TEXT_LEFT);
+    if (nk_input_is_mouse_hovering_rect(&ctx->input, bounds))
+      nk_tooltip(ctx, "  Branch");
+
+    bounds = nk_widget_bounds(ctx);
+    nk_label(ctx, "D", NK_TEXT_LEFT);
+    if (nk_input_is_mouse_hovering_rect(&ctx->input, bounds))
+      nk_tooltip(ctx, "  Decimal");
+
+    bounds = nk_widget_bounds(ctx);
+    nk_label(ctx, "I", NK_TEXT_LEFT);
+    if (nk_input_is_mouse_hovering_rect(&ctx->input, bounds))
+      nk_tooltip(ctx, "  Interupt disable");
+
+    bounds = nk_widget_bounds(ctx);
+    nk_label(ctx, "Z", NK_TEXT_LEFT);
+    if (nk_input_is_mouse_hovering_rect(&ctx->input, bounds))
+      nk_tooltip(ctx, "  Zero");
+
+    bounds = nk_widget_bounds(ctx);
+    nk_label(ctx, "C", NK_TEXT_LEFT);
+    if (nk_input_is_mouse_hovering_rect(&ctx->input, bounds))
+      nk_tooltip(ctx, "  Carry");
+
+    nk_layout_row_static(ctx, 8, 230, 1);
+    snprintf(str, 64, "%c  %c  %c  %c  %c  %c  %c  %c  = 0x%02X",
+             BYTE_TO_BINARY(state.P), state.P);
+    nk_label(ctx, str, NK_TEXT_LEFT);
+
+    nk_layout_row_static(ctx, 20, 230, 1);
+    char str2[64];
+    snprintf(str2, 64, "PC: %04X  SP: %02X  cycle: %lu", state.PC, state.SP,
+             state.cycle_count);
+    nk_label(ctx, str2, NK_TEXT_LEFT);
+
+    nk_layout_row_static(ctx, 8, 230, 1);
+    char str3[64];
+    snprintf(str3, 64, "A: %02X X: %02X Y: %02X", state.A, state.X, state.Y);
+    nk_label(ctx, str3, NK_TEXT_LEFT);
+  }
+  nk_end(ctx);
+}
+
+void asm_txt(GUI_context *gui_ctx, const char **text, uint16_t size,
+             const CPU_state state) {
   struct nk_context *ctx = gui_ctx->nk_ctx;
   if (nk_begin(ctx, "asm",
-               nk_rect(gui_ctx->win_width - 230, 30, 230, gui_ctx->win_height-30),
-                 NK_WINDOW_NO_SCROLLBAR|NK_WINDOW_TITLE )) {
+               nk_rect(gui_ctx->win_width - 230, 130, 230,
+                       gui_ctx->win_height - 130),
+               NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_TITLE)) {
 
-    nk_layout_row_static(ctx, gui_ctx->win_height-80, 200, 1);
-    nk_flags active;
+    // nk_layout_row_static(ctx, gui_ctx->win_height , 200, 1);
+    nk_layout_row_static(ctx, 10, 220, 1);
     int len2;
-    active =
-        nk_edit_string(ctx, NK_EDIT_BOX, text, &len2, 50*(16+5+1)+1, nk_filter_ascii);
+    // nk_flags active = nk_edit_string(ctx, NK_EDIT_BOX, text, &len2,
+    //                                 50 * (16 + 5 + 1) + 1, nk_filter_ascii);
+    for (int i = -20; i < 20; ++i) {
+      int pc = (state.PC + i) % size;
+      if (pc < 0 || !text[pc]) {
+        //char str[8];
+        //snprintf(str,8,"%04X",pc);
+        //nk_label(ctx, str, NK_TEXT_LEFT);
+        continue;
+      }
+      if (i == 0)
+        nk_label_colored(ctx, text[pc], NK_TEXT_LEFT, nk_rgb(255, 255, 0));
+      else
+        nk_label(ctx, text[pc], NK_TEXT_LEFT);
+    }
   }
   nk_end(ctx);
 }
