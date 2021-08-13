@@ -1,5 +1,97 @@
 #include "PPU.h"
 
+void PPU_init(PPU *ppu, NES_ROM *rom){
+  ppu->state.mem_read_buf=0;
+  ppu->state.adr_register=0;
+  ppu->state.adr_write_latch=0;
+  ppu->state.control.reg=0;
+  ppu->state.high_bit_shift=0;
+  ppu->state.loopy.reg=0;
+  ppu->state.low_bit_shift=0;
+  ppu->state.mask.reg=0;
+  ppu->state.mem_read_buf=0;
+  ppu->state.sprite_ram_adr=0;
+  ppu->state.status.reg=0;
+  ppu->state.tmp_video_ram_adr.reg=0;
+  ppu->state.video_ram_adr.reg=0;
+  ppu->state.write_toggle=0;
+  ppu->state.x_scroll=0;
+  
+
+  ppu->scan_line=0;
+  ppu->cycle=0;
+  ppu->frame_count=0;
+  ppu->master_clock=0;
+
+  ppu->rom = rom;
+}
+
+uint8_t PPU_cpu_read(PPU *ppu, uint16_t adr) {
+  uint8_t data = 0x00;
+
+  switch (adr) {
+  case 0x0000: // Control
+    break;
+  case 0x0001: // Mask
+    break;
+  case 0x0002: // Status --- unused bits are noise usually what was last in the
+               // data buffer
+    ppu->state.status.VERTICAL_BLANK = 1;
+    data = (ppu->state.status.reg & 0xe0) | (ppu->state.mem_read_buf & 0x1f);
+    ppu->state.status.VERTICAL_BLANK = 0;
+    ppu->state.adr_write_latch = 0;
+    break;
+  case 0x0003: // OAM Address
+    break;
+  case 0x0004: // OAM Data
+    break;
+  case 0x0005: // Scroll
+    break;
+  case 0x0006: // PPU Address cant read
+    break;
+  case 0x0007: // PPU Data
+    data = ppu->state.mem_read_buf;
+    ppu->state.mem_read_buf = PPU_read(ppu, ppu->state.adr_register);
+
+    // palette addressess not buffered
+    if (ppu->state.adr_register > 0x3f00)
+      data = ppu->state.mem_read_buf;
+    break;
+  }
+
+  return data;
+}
+
+void PPU_cpu_write(PPU *ppu, uint16_t adr, uint8_t data) {
+  switch (adr) {
+  case 0x0000: // Control
+    ppu->state.control.reg = data;
+    break;
+  case 0x0001: // Mask
+    ppu->state.mask.reg = data;
+    break;
+  case 0x0002: // Status -- cant write to this
+    break;
+  case 0x0003: // OAM Address
+    break;
+  case 0x0004: // OAM Data
+    break;
+  case 0x0005: // Scroll
+    break;
+  case 0x0006: // PPU Address
+    if (ppu->state.adr_write_latch == 0) {
+      ppu->state.adr_register = (ppu->state.adr_register & 0x00ff) | data << 8;
+      ppu->state.adr_write_latch = 1;
+    } else {
+      ppu->state.adr_register = (ppu->state.adr_register & 0xff00) | data;
+      ppu->state.adr_write_latch = 0;
+    }
+    break;
+  case 0x0007: // PPU Data
+    break;
+  }
+}
+
 uint8_t PPU_read(PPU *ppu, uint16_t adr) {
   adr &= 0x3fff;
   uint8_t data;
@@ -9,7 +101,7 @@ uint8_t PPU_read(PPU *ppu, uint16_t adr) {
   if (adr <= 0x1fff) { // pattern
     return ppu->pattern_ram[adr];
   } else if (adr >= 0x2000 && adr <= 0x3eff) { // name table
-    return 0; //TODO
+    return 0;                                  // TODO
   } else if (adr >= 0x3f00 && adr <= 0x3fff) { // palette
     adr &= 0x001f;
     // mirroring addresses
@@ -60,6 +152,7 @@ uint32_t PPU_get_color_from_palette_ram(PPU *ppu, uint8_t palette_idx,
 }
 
 void PPU_load_pattern_table(PPU *ppu, uint8_t table_n /*0 or 1*/) {
+  uint32_t test[4]={0x222222ff, 0x888888ff, 0xaaaaaaff, 0xffffffff};
   for (int tile_y = 0; tile_y < 16; ++tile_y) {
     for (int tile_x = 0; tile_x < 16; ++tile_x) {
 
@@ -70,8 +163,8 @@ void PPU_load_pattern_table(PPU *ppu, uint8_t table_n /*0 or 1*/) {
         for (int col = 0; col < 8; ++col) {
           int x = 8 * tile_x + 7 - col; // invert on x-dir
           int y = 8 * tile_y + row;
-          ppu->pattern_table[8 * table_n + x + 16 * 2 * y] =
-              (low & 1) + (high & 1); // the palette value 0,1,2 or 3.
+          ppu->pattern_table[128 * table_n + x + 128*2 * y] =
+              test[(low & 1) + (high & 1)]; // the palette value 0,1,2 or 3.
           low >>= 1;
           high >>= 1;
         }

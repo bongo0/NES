@@ -16,6 +16,7 @@
 // Global state
 typedef struct {
   SDL_Window *window;
+  //SDL_Renderer *renderer;
   int win_width, win_height;
   SDL_GLContext gl_ctx;
   struct nk_context *nk_ctx;
@@ -33,4 +34,7 @@ void GUI_quit(GUI_context *ctx);
 void Menu_bar(GUI_context *ctx);
 void cpu_state(GUI_context *gui_ctx, const CPU_state state);
 void asm_txt(GUI_context *gui_ctx, const char **text, uint16_t size, const CPU_state state);
+
+void draw_image(int x, int y,int width, int height, GLuint texture_id, uint8_t blendFlag);
+
 #endif // GUI_H

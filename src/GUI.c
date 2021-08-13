@@ -44,6 +44,7 @@ void GUI_init(GUI_context *ctx) {
 
   {
     nk_sdl_font_stash_begin(&ctx->atlas);
+
     /*struct nk_font *droid = nk_font_atlas_add_from_file(atlas,
      * "../../../extra_font/DroidSans.ttf", 14, 0);*/
     /*struct nk_font *roboto = nk_font_atlas_add_from_file(atlas,
@@ -56,7 +57,9 @@ void GUI_init(GUI_context *ctx) {
      * "../../../extra_font/ProggyTiny.ttf", 10, 0);*/
     /*struct nk_font *cousine = nk_font_atlas_add_from_file(atlas,
      * "../../../extra_font/Cousine-Regular.ttf", 13, 0);*/
+
     nk_sdl_font_stash_end();
+  
   /*nk_style_load_all_cursors(ctx, atlas->cursors);*/
     /*nk_style_set_font(ctx, &roboto->handle);*/}
     ctx->bg.r = 0.10f;
@@ -91,6 +94,7 @@ void GUI_render_end(GUI_context *ctx) {
   glViewport(0, 0, ctx->win_width, ctx->win_height);
   glClear(GL_COLOR_BUFFER_BIT);
   glClearColor(ctx->bg.r, ctx->bg.g, ctx->bg.b, ctx->bg.a);
+  // SDL_GetWindowSize(ctx->window, &ctx->win_width, &ctx->win_height);
   /* IMPORTANT: `nk_sdl_render` modifies some global OpenGL state
    * with blending, scissor, face culling, depth test and viewport and
    * defaults everything back into a default state.
@@ -103,6 +107,7 @@ void GUI_render_end(GUI_context *ctx) {
 void GUI_quit(GUI_context *ctx) {
   nk_sdl_shutdown();
   SDL_GL_DeleteContext(ctx->gl_ctx);
+  // SDL_DestroyRenderer(ctx->renderer);
   SDL_DestroyWindow(ctx->window);
   SDL_Quit();
 }
@@ -219,8 +224,8 @@ void cpu_state(GUI_context *gui_ctx, const CPU_state state) {
 
     nk_layout_row_static(ctx, 20, 230, 1);
     char str2[64];
-    snprintf(str2, 64, "PC: %04X  SP: %02X  cycle: %lu", state.PC, state.SP,
-             state.cycle_count);
+    snprintf(str2, 64, "PC: %04X  SP: %02X  " /*"cycle: %lu"*/, state.PC,
+             state.SP);
     nk_label(ctx, str2, NK_TEXT_LEFT);
 
     nk_layout_row_static(ctx, 8, 230, 1);
@@ -244,19 +249,74 @@ void asm_txt(GUI_context *gui_ctx, const char **text, uint16_t size,
     int len2;
     // nk_flags active = nk_edit_string(ctx, NK_EDIT_BOX, text, &len2,
     //                                 50 * (16 + 5 + 1) + 1, nk_filter_ascii);
-    for (int i = -20; i < 20; ++i) {
+    int l_pcs[10];
+    for (int lines = 0, i = -1; lines < 10; --i) {
       int pc = (state.PC + i) % size;
       if (pc < 0 || !text[pc]) {
-        //char str[8];
-        //snprintf(str,8,"%04X",pc);
-        //nk_label(ctx, str, NK_TEXT_LEFT);
         continue;
       }
-      if (i == 0)
-        nk_label_colored(ctx, text[pc], NK_TEXT_LEFT, nk_rgb(255, 255, 0));
-      else
-        nk_label(ctx, text[pc], NK_TEXT_LEFT);
+      // nk_label(ctx, text[pc], NK_TEXT_LEFT);
+      l_pcs[lines] = pc;
+      lines++;
+    }
+    for (int i = 9; i >= 0; --i) {
+      nk_label(ctx, text[l_pcs[i]], NK_TEXT_LEFT);
+    }
+    if (text[(state.PC + 0) % size])
+      nk_label_colored(ctx, text[(state.PC + 0) % size], NK_TEXT_LEFT,
+                       nk_rgb(255, 255, 0));
+    for (int lines = 0, i = 1; lines < 10; ++i) {
+      int pc = (state.PC + i) % size;
+      if (pc < 0 || !text[pc]) {
+        continue;
+      }
+      nk_label(ctx, text[pc], NK_TEXT_LEFT);
+      lines++;
     }
   }
   nk_end(ctx);
+}
+
+void draw_image(int x, int y, int width, int height, GLuint texture_id,
+                uint8_t blendFlag) {
+  // Bind Texture
+  glBindTexture(GL_TEXTURE_2D, texture_id);
+
+  if (blendFlag) {
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  }
+
+  GLfloat Vertices[] = {(float)x,
+                        (float)y,
+                        0,
+                        (float)x + width,
+                        (float)y,
+                        0,
+                        (float)x + (float)width,
+                        (float)y + (float)height,
+                        0,
+                        (float)x,
+                        (float)y + (float)height,
+                        0};
+  GLfloat TexCoord[] = {
+      0, 0, 1, 0, 1, 1, 0, 1,
+  };
+  GLubyte indices[] = {
+      0, 1, 2,  // first triangle (bottom left - top left - top right)
+      0, 2, 3}; // second triangle (bottom left - top right - bottom right)
+
+  glEnableClientState(GL_VERTEX_ARRAY);
+  glVertexPointer(3, GL_FLOAT, 0, Vertices);
+
+  glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+  glTexCoordPointer(2, GL_FLOAT, 0, TexCoord);
+
+  glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, indices);
+
+  glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+  glDisableClientState(GL_VERTEX_ARRAY);
+
+  if (blendFlag)
+    glDisable(GL_BLEND);
 }

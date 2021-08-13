@@ -70,6 +70,11 @@ typedef struct {
   uint8_t write_toggle;
   uint16_t high_bit_shift;
   uint16_t low_bit_shift;
+  
+  uint8_t adr_write_latch;
+  uint8_t mem_read_buf; // reading from ppu is delayed by one cycle, buffer for
+                        // that data
+  uint16_t adr_register;
 } PPU_state;
 
 typedef struct {
@@ -80,7 +85,6 @@ typedef struct {
   uint32_t frame_count;
   uint64_t master_clock;
 
-  uint8_t mem_read_buf;
   uint8_t palette_ram[0x20];
   uint8_t sprite_ram[0x100];
   uint8_t pattern_ram[2 * 0x1000];
@@ -90,6 +94,9 @@ typedef struct {
   NES_ROM *rom;
 } PPU;
 
+void PPU_init(PPU *ppu, NES_ROM *rom);
+uint8_t PPU_cpu_read(PPU *ppu, uint16_t adr);
+void PPU_cpu_write(PPU *ppu, uint16_t adr, uint8_t data);
 uint8_t PPU_read(PPU *ppu, uint16_t adr);
 void PPU_write(PPU *ppu, uint16_t adr, uint8_t data);
 uint32_t PPU_get_color_from_palette_ram(PPU *ppu, uint8_t palette_idx,
