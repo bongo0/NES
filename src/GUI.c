@@ -262,9 +262,13 @@ void asm_txt(GUI_context *gui_ctx, const char **text, uint16_t size,
     for (int i = 9; i >= 0; --i) {
       nk_label(ctx, text[l_pcs[i]], NK_TEXT_LEFT);
     }
-    if (text[(state.PC + 0) % size])
+    if (text[(state.PC + 0) % size]){
       nk_label_colored(ctx, text[(state.PC + 0) % size], NK_TEXT_LEFT,
+                       nk_rgb(255, 255, 0));}else{
+      nk_label_colored(ctx, "ERROR disasm PC null", NK_TEXT_LEFT,
                        nk_rgb(255, 255, 0));
+      printf("pc:%04X op: %02X %s\n",state.PC,state.last_op,CPU_op_names[state.last_op]);
+                       }
     for (int lines = 0, i = 1; lines < 10; ++i) {
       int pc = (state.PC + i) % size;
       if (pc < 0 || !text[pc]) {

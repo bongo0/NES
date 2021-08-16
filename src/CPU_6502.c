@@ -220,8 +220,9 @@ void CPU_tick(CPU_6502 *cpu) {
     cpu->previous_state = cpu->state;
     cpu->state.page_cross = 0;
 
-    uint16_t last_PC = cpu->state.PC;
+    uint16_t last_PC = cpu->state.PC; // for debugging
     uint8_t op = CPU_get_op(cpu);
+    cpu->state.last_op=op;// for debugging
     cpu->state.operand = CPU_get_operand(cpu);
     cpu->state.PC++;
     CPU_exec_instruction(cpu, op);
@@ -470,7 +471,8 @@ void IRQ(CPU_6502 *cpu) {
   cpu->state.cycle_count = 7;
 }
 
-void NMI(CPU_6502 *cpu) {
+void CPU_NMI(CPU_6502 *cpu) {
+
   CPU_stack_push(cpu, (uint8_t)(cpu->state.PC >> 8));
   CPU_stack_push(cpu, (uint8_t)cpu->state.PC);
 
@@ -1434,8 +1436,7 @@ size_t CPU_disassemble_arr(uint8_t *data, uint16_t size, char ***out) {
   char *wpos;
   size_t total_size = 0;
   uint8_t op;
-  uint16_t rel_adr = 0;
-  for (uint16_t adr = 0; adr < size;) {
+  for (uint16_t adr = 0; adr < size;++adr) {
     op = data[adr];
 
     uint8_t operand;
@@ -1445,26 +1446,26 @@ size_t CPU_disassemble_arr(uint8_t *data, uint16_t size, char ***out) {
     // clang-format off
     int n = sprintf(wpos,"%04x %s", adr, CPU_op_names[op]);wpos+=n;total_size+=n;
     switch (CPU_addr_mode_table[op]) {
-      case IMMIDIATE: operand=data[++adr];                 n=sprintf(wpos,"  %02x     imm   ",operand);wpos+=n;total_size+=n;rel_adr+=2;break;
-      case ZEROPAGE: operand=data[++adr];                  n=sprintf(wpos,"  %02x     zero  ",operand);wpos+=n;total_size+=n;rel_adr+=2;break;
-      case ZEROPAGE_X: operand=data[++adr];                n=sprintf(wpos,"  %02x     zero X",operand);wpos+=n;total_size+=n;rel_adr+=2;break;
-      case ZEROPAGE_Y: operand=data[++adr];                n=sprintf(wpos,"  %02x     zero Y",operand);wpos+=n;total_size+=n;rel_adr+=2;break;
-      case ABSOLUTE: operand=data[++adr];hi=data[++adr];   n=sprintf(wpos,"  %02x %02x  abs   ",hi,operand);wpos+=n;total_size+=n;rel_adr+=3;break;
-      case ABSOLUTE_X: operand=data[++adr];hi=data[++adr]; n=sprintf(wpos,"  %02x %02x  abs X ",hi,operand);wpos+=n;total_size+=n;rel_adr+=3;break;
-      case ABSOLUTE_Y: operand=data[++adr];hi=data[++adr]; n=sprintf(wpos,"  %02x %02x  abs Y ",hi,operand);wpos+=n;total_size+=n;rel_adr+=3;break;
-      case INDIRECT: operand=data[++adr];hi=data[++adr];   n=sprintf(wpos,"  %02x %02x  ind   ",hi,operand);wpos+=n;total_size+=n;rel_adr+=3;break;
-      case INDIRECT_X: operand=data[++adr];hi=data[++adr]; n=sprintf(wpos,"  %02x %02x  ind X ",hi,operand);wpos+=n;total_size+=n;rel_adr+=3;break;
-      case INDIRECT_Y: operand=data[++adr];hi=data[++adr]; n=sprintf(wpos,"  %02x %02x  ind Y ",hi,operand);wpos+=n;total_size+=n;rel_adr+=3;break;
-      case RELATIVE: operand=data[++adr];                  n=sprintf(wpos,"  %02x     rel   ",operand);wpos+=n;total_size+=n;rel_adr+=2;break;
-      case IMPLICIT: operand=0;                            n=sprintf(wpos,"         imp   ");wpos+=n;total_size+=n;rel_adr+=1;break;
-      case ACCUMULATE: operand=0;                          n=sprintf(wpos,"         acc   ");wpos+=n;total_size+=n;rel_adr+=1;break;
-      case M__AbsYW: operand=data[++adr];hi=data[++adr];   n=sprintf(wpos,"  %02x %02x  abs YW",hi,operand);wpos+=n;total_size+=n;rel_adr+=3;break;
-      case M__AbsXW: operand=data[++adr];hi=data[++adr];   n=sprintf(wpos,"  %02x %02x  abs XW",hi,operand);wpos+=n;total_size+=n;rel_adr+=3;break;
-      case M__IndYW: operand=data[++adr];hi=data[++adr];   n=sprintf(wpos,"  %02x %02x  ind YW",hi,operand);wpos+=n;total_size+=n;rel_adr+=3;break;
-      case NONE:       n=sprintf(wpos,"               ");wpos+=n;total_size+=n;rel_adr+=1;break;
-      default:         n=sprintf(wpos,"ERROR          ");wpos+=n;total_size+=n;rel_adr+=1;break;
+      case IMMIDIATE: operand=data[1+adr];                 n=sprintf(wpos,"  %02x     imm   ",operand);wpos+=n;total_size+=n;break;
+      case ZEROPAGE: operand=data[adr];                  n=sprintf(wpos,"  %02x     zero  ",operand);wpos+=n;total_size+=n;break;
+      case ZEROPAGE_X: operand=data[1+adr];                n=sprintf(wpos,"  %02x     zero X",operand);wpos+=n;total_size+=n;break;
+      case ZEROPAGE_Y: operand=data[1+adr];                n=sprintf(wpos,"  %02x     zero Y",operand);wpos+=n;total_size+=n;break;
+      case ABSOLUTE: operand=data[1+adr];hi=data[2+adr];   n=sprintf(wpos,"  %02x %02x  abs   ",hi,operand);wpos+=n;total_size+=n;break;
+      case ABSOLUTE_X: operand=data[1+adr];hi=data[2+adr]; n=sprintf(wpos,"  %02x %02x  abs X ",hi,operand);wpos+=n;total_size+=n;break;
+      case ABSOLUTE_Y: operand=data[1+adr];hi=data[2+adr]; n=sprintf(wpos,"  %02x %02x  abs Y ",hi,operand);wpos+=n;total_size+=n;break;
+      case INDIRECT: operand=data[1+adr];hi=data[2+adr];   n=sprintf(wpos,"  %02x %02x  ind   ",hi,operand);wpos+=n;total_size+=n;break;
+      case INDIRECT_X: operand=data[1+adr];hi=data[2+adr]; n=sprintf(wpos,"  %02x %02x  ind X ",hi,operand);wpos+=n;total_size+=n;break;
+      case INDIRECT_Y: operand=data[1+adr];hi=data[2+adr]; n=sprintf(wpos,"  %02x %02x  ind Y ",hi,operand);wpos+=n;total_size+=n;break;
+      case RELATIVE: operand=data[1+adr];                  n=sprintf(wpos,"  %02x     rel   ",operand);wpos+=n;total_size+=n;break;
+      case IMPLICIT: operand=0;                            n=sprintf(wpos,"         imp   ");wpos+=n;total_size+=n;break;
+      case ACCUMULATE: operand=0;                          n=sprintf(wpos,"         acc   ");wpos+=n;total_size+=n;break;
+      case M__AbsYW: operand=data[1+adr];hi=data[2+adr];   n=sprintf(wpos,"  %02x %02x  abs YW",hi,operand);wpos+=n;total_size+=n;break;
+      case M__AbsXW: operand=data[1+adr];hi=data[2+adr];   n=sprintf(wpos,"  %02x %02x  abs XW",hi,operand);wpos+=n;total_size+=n;break;
+      case M__IndYW: operand=data[1+adr];hi=data[2+adr];   n=sprintf(wpos,"  %02x %02x  ind YW",hi,operand);wpos+=n;total_size+=n;break;
+      case NONE:       n=sprintf(wpos,"               ");wpos+=n;total_size+=n;break;
+      default:         n=sprintf(wpos,"ERROR          ");wpos+=n;total_size+=n;break;
   }
-  ++adr;
+  
 //clang-format on
   }
   return total_size;

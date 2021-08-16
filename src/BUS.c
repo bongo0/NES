@@ -26,3 +26,39 @@ uint8_t BUS_cpu_read(NES_BUS *nes, uint16_t adr) {
   }
   return 0;
 }
+
+void BUS_init(NES_BUS *nes, NES_ROM *rom){
+  nes->rom=rom;
+  nes->tick_counter=0;
+  PPU_init(&nes->ppu, rom);
+  CPU_init(&nes->cpu, nes);
+
+  CPU_reset(&nes->cpu);
+  PPU_reset(&nes->ppu);
+
+}
+
+void BUS_reset(NES_BUS *nes){
+  nes->tick_counter=0;
+  ROM_reset_mapper(nes->rom);
+  CPU_reset(&nes->cpu);
+  PPU_reset(&nes->ppu);
+}
+
+void BUS_tick(NES_BUS *nes){
+  PPU_tick(&nes->ppu);
+
+  // CPU runs every 3 PPU cycles
+  if(nes->tick_counter%3==0){
+    //printf("tick:%d cpucycle:%d\n",nes->tick_counter,nes->cpu.state.cycle_count);
+    CPU_tick(&nes->cpu);
+  }
+
+  // PPU emit interupt
+  if(nes->ppu.state.nmi){
+      //printf("CPU NMI ");
+    nes->ppu.state.nmi=0;
+    CPU_NMI(&nes->cpu);
+  }
+  nes->tick_counter++;
+}

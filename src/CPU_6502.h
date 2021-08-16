@@ -69,6 +69,7 @@ typedef struct {
   uint8_t raw_operand_zp; // for nestest.log testing
 //#endif
   uint64_t cycles_accumulated;
+  uint8_t last_op;
 
   uint8_t need_nmi;
   uint8_t last_need_nmi;
@@ -121,6 +122,7 @@ void CPU_exec_instruction(CPU_6502 *CPU, uint8_t op_code);
 void CPU_load_to_memory(CPU_6502 *cpu, uint8_t *data, uint16_t size, uint16_t adr);
 uint8_t CPU_get_status_flag(CPU_6502 *cpu, uint8_t flag);
 CPU_state CPU_get_state(CPU_6502 *CPU);
+void CPU_NMI(CPU_6502 *cpu);
 opcode_func_t CPU_op_table[256];
 CPU_addr_mode CPU_addr_mode_table[256];
 

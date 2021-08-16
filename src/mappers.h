@@ -2,6 +2,7 @@
 #define MAPPERS_H
 
 #include <stdint.h>
+#include <stdio.h>
 
 typedef uint8_t(*map_f)(void * mapper,uint16_t adr, uint16_t *mapped_adr);
 
@@ -16,8 +17,8 @@ typedef struct {
 typedef struct  {
   // mapper state
   // mapper 000 does not have registers
-  uint8_t PRG_size;
-  uint8_t CHR_size;
+  size_t PRG_size;
+  size_t CHR_size;
 } Mapper000;
 
 uint8_t Mapper000_cpu_read(void *mapper_state, uint16_t adr, uint16_t *mapped_adr);

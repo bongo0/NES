@@ -165,6 +165,7 @@ uint8_t ROM_cpu_read(NES_ROM *rom, uint16_t adr, uint8_t *data_out);
 uint8_t ROM_cpu_write(NES_ROM *rom, uint16_t adr, uint8_t data);
 uint8_t ROM_ppu_read(NES_ROM *rom, uint16_t adr, uint8_t *data_out);
 uint8_t ROM_ppu_write(NES_ROM *rom, uint16_t adr, uint8_t data);
+void ROM_reset_mapper(NES_ROM *rom);
 void ROM_free(NES_ROM *rom);
 
 

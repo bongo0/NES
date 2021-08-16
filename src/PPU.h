@@ -75,6 +75,8 @@ typedef struct {
   uint8_t mem_read_buf; // reading from ppu is delayed by one cycle, buffer for
                         // that data
   uint16_t adr_register;
+
+  uint8_t nmi;
 } PPU_state;
 
 typedef struct {
@@ -95,6 +97,8 @@ typedef struct {
 } PPU;
 
 void PPU_init(PPU *ppu, NES_ROM *rom);
+void PPU_tick(PPU *ppu);
+void PPU_reset(PPU *ppu);
 uint8_t PPU_cpu_read(PPU *ppu, uint16_t adr);
 void PPU_cpu_write(PPU *ppu, uint16_t adr, uint8_t data);
 uint8_t PPU_read(PPU *ppu, uint16_t adr);
@@ -117,6 +121,6 @@ typedef enum {
   PALETTE_2C05_05 = 10
 } PPU_PALETTE;
 
-uint32_t PPU_PALETTE_ARGB[11][64];
+uint32_t PPU_PALETTE_RGBA[11][64];
 
 #endif // PPU_H
