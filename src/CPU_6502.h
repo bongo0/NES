@@ -105,6 +105,9 @@ typedef enum {
 
 } CPU_addr_mode;
 
+// stack location ($0100-$01FF)
+#define STACK_LOCATION 0x100
+
 typedef void *(*opcode_func_t)(CPU_6502 *, CPU_addr_mode);
 
 CPU_6502 *CPU_init(CPU_6502 *cpu, NES_BUS *bus);

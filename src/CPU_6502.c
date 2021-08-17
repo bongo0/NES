@@ -199,7 +199,7 @@ void CPU_write_memory(CPU_6502 *cpu, uint16_t adr, uint8_t val) {
 }
 
 // stack location ($0100-$01FF)
-#define STACK_LOCATION 0x100
+//#define STACK_LOCATION 0x100
 void CPU_stack_push(CPU_6502 *cpu, uint8_t val) {
   CPU_write_memory(cpu, cpu->state.SP + STACK_LOCATION, val);
   cpu->state.SP--;
@@ -220,7 +220,10 @@ void CPU_tick(CPU_6502 *cpu) {
     cpu->previous_state = cpu->state;
     cpu->state.page_cross = 0;
 
+#ifdef NESTEST_LOG_COMP
     uint16_t last_PC = cpu->state.PC; // for debugging
+#endif
+    
     uint8_t op = CPU_get_op(cpu);
     cpu->state.last_op=op;// for debugging
     cpu->state.operand = CPU_get_operand(cpu);
@@ -464,7 +467,7 @@ void IRQ(CPU_6502 *cpu) {
     CPU_set_status_flags(cpu, CPU_STATUS_INTERUPT_DISABLE);
 
     uint8_t low = CPU_read_memory(cpu, CPU_IRQ_VECTOR);
-    uint8_t high = CPU_read_memory(cpu, CPU_IRQ_VECTOR);
+    uint8_t high = CPU_read_memory(cpu, CPU_IRQ_VECTOR+1);
     cpu->state.PC = low | (high << 8);
   }
 
@@ -480,9 +483,9 @@ void CPU_NMI(CPU_6502 *cpu) {
   CPU_set_status_flags(cpu, CPU_STATUS_INTERUPT_DISABLE);
 
   uint8_t low = CPU_read_memory(cpu, CPU_NMI_VECTOR);
-  uint8_t high = CPU_read_memory(cpu, CPU_NMI_VECTOR);
+  uint8_t high = CPU_read_memory(cpu, CPU_NMI_VECTOR+1);
   cpu->state.PC = low | (high << 8);
-
+printf("NMI -- %04X -> %04X\n",CPU_NMI_VECTOR,cpu->state.PC);
   cpu->state.cycle_count = 8;
 }
 

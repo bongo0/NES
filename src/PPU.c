@@ -1,55 +1,55 @@
 #include "PPU.h"
 
-void PPU_init(PPU *ppu, NES_ROM *rom){
-  ppu->state.mem_read_buf=0;
-  ppu->state.adr_register=0;
-  ppu->state.adr_write_latch=0;
-  ppu->state.control.reg=0;
-  ppu->state.high_bit_shift=0;
-  ppu->state.loopy.reg=0;
-  ppu->state.low_bit_shift=0;
-  ppu->state.mask.reg=0;
-  ppu->state.mem_read_buf=0;
-  ppu->state.sprite_ram_adr=0;
-  ppu->state.status.reg=0;
-  ppu->state.tmp_video_ram_adr.reg=0;
-  ppu->state.video_ram_adr.reg=0;
-  ppu->state.write_toggle=0;
-  ppu->state.x_scroll=0;
-  ppu->state.nmi=0;
-  
+void PPU_init(PPU *ppu, NES_ROM *rom) {
+  ppu->state.data_buf = 0;
+  ppu->state.adr_register = 0;
+  ppu->state.adr_write_latch = 0;
+  ppu->state.control.reg = 0;
+  ppu->state.high_bit_shift = 0;
+  ppu->state.loopy.reg = 0;
+  ppu->state.low_bit_shift = 0;
+  ppu->state.mask.reg = 0;
+  ppu->state.data_buf = 0;
+  ppu->state.sprite_ram_adr = 0;
+  ppu->state.status.reg = 0;
+  ppu->state.tmp_video_ram_adr.reg = 0;
+  ppu->state.video_ram_adr.reg = 0;
+  ppu->state.write_toggle = 0;
+  ppu->state.x_scroll = 0;
+  ppu->state.nmi = 0;
 
-  ppu->scan_line=0;
-  ppu->cycle=0;
-  ppu->frame_count=0;
-  ppu->master_clock=0;
+  ppu->scan_line = 0;
+  ppu->cycle = 0;
+  ppu->frame_count = 0;
+  ppu->frame_complete = 0;
+  ppu->master_clock = 0;
 
   ppu->rom = rom;
 }
 
-void PPU_reset(PPU *ppu){
-  ppu->state.mem_read_buf=0;
-  ppu->state.adr_register=0;
-  ppu->state.adr_write_latch=0;
-  ppu->state.control.reg=0;
-  ppu->state.high_bit_shift=0;
-  ppu->state.loopy.reg=0;
-  ppu->state.low_bit_shift=0;
-  ppu->state.mask.reg=0;
-  ppu->state.mem_read_buf=0;
-  ppu->state.sprite_ram_adr=0;
-  ppu->state.status.reg=0;
-  ppu->state.tmp_video_ram_adr.reg=0;
-  ppu->state.video_ram_adr.reg=0;
-  ppu->state.write_toggle=0;
-  ppu->state.x_scroll=0;
-  ppu->state.nmi=0;
-  
+void PPU_reset(PPU *ppu) {
+  ppu->state.data_buf = 0;
+  ppu->state.adr_register = 0;
+  ppu->state.adr_write_latch = 0;
+  ppu->state.control.reg = 0;
+  ppu->state.high_bit_shift = 0;
+  ppu->state.loopy.reg = 0;
+  ppu->state.low_bit_shift = 0;
+  ppu->state.mask.reg = 0;
+  ppu->state.data_buf = 0;
+  ppu->state.sprite_ram_adr = 0;
+  ppu->state.status.reg = 0;
+  ppu->state.tmp_video_ram_adr.reg = 0;
+  ppu->state.video_ram_adr.reg = 0;
+  ppu->state.write_toggle = 0;
+  ppu->state.x_scroll = 0;
+  ppu->state.nmi = 0;
 
-  ppu->scan_line=0;
-  ppu->cycle=0;
-  ppu->frame_count=0;
-  ppu->master_clock=0;
+  ppu->scan_line = 0;
+  ppu->cycle = 0;
+  ppu->frame_count = 0;
+  ppu->frame_complete = 0;
+  ppu->master_clock = 0;
 }
 
 uint8_t PPU_cpu_read(PPU *ppu, uint16_t adr) {
@@ -62,8 +62,8 @@ uint8_t PPU_cpu_read(PPU *ppu, uint16_t adr) {
     break;
   case 0x0002: // Status --- unused bits are noise usually what was last in the
                // data buffer
-    ppu->state.status.VERTICAL_BLANK = 1;//tmp hack
-    data = (ppu->state.status.reg & 0xe0) | (ppu->state.mem_read_buf & 0x1f);
+               //    ppu->state.status.VERTICAL_BLANK = 1;//tmp hack
+    data = (ppu->state.status.reg & 0xe0) | (ppu->state.data_buf & 0x1f);
     ppu->state.status.VERTICAL_BLANK = 0;
     ppu->state.adr_write_latch = 0;
     break;
@@ -76,13 +76,19 @@ uint8_t PPU_cpu_read(PPU *ppu, uint16_t adr) {
   case 0x0006: // PPU Address cant read
     break;
   case 0x0007: // PPU Data
-    data = ppu->state.mem_read_buf;
-    ppu->state.mem_read_buf = PPU_read(ppu, ppu->state.adr_register);
+    data = ppu->state.data_buf;
+    ppu->state.data_buf = PPU_read(ppu, ppu->state.adr_register);
 
     // palette addressess not buffered
-    if (ppu->state.adr_register > 0x3f00)
-      data = ppu->state.mem_read_buf;
-    ppu->state.adr_register++;
+    if (ppu->state.adr_register >= 0x3f00)
+      data = ppu->state.data_buf;
+
+    // All writes from PPU data automatically increment the nametable
+    // address depending upon the mode set in the control register.
+    // If set to vertical mode, the increment is 32, so it skips
+    // one whole nametable row; in horizontal mode it just increments
+    // by 1, moving to the next column
+    ppu->state.adr_register += (ppu->state.control.INCREMENT_MODE ? 32 : 1);
     break;
   }
 
@@ -107,7 +113,8 @@ void PPU_cpu_write(PPU *ppu, uint16_t adr, uint8_t data) {
     break;
   case 0x0006: // PPU Address
     if (ppu->state.adr_write_latch == 0) {
-      ppu->state.adr_register = (ppu->state.adr_register & 0x00ff) | data << 8;
+      ppu->state.adr_register = (uint16_t)(ppu->state.adr_register & 0x00ff) |
+                                (uint16_t)((data & 0x3f) << 8);
       ppu->state.adr_write_latch = 1;
     } else {
       ppu->state.adr_register = (ppu->state.adr_register & 0xff00) | data;
@@ -115,8 +122,13 @@ void PPU_cpu_write(PPU *ppu, uint16_t adr, uint8_t data) {
     }
     break;
   case 0x0007: // PPU Data
-    PPU_write(ppu,ppu->state.adr_register,data);
-    ppu->state.adr_register++;
+    PPU_write(ppu, ppu->state.adr_register, data);
+    // All writes from PPU data automatically increment the nametable
+    // address depending upon the mode set in the control register.
+    // If set to vertical mode, the increment is 32, so it skips
+    // one whole nametable row; in horizontal mode it just increments
+    // by 1, moving to the next column
+    ppu->state.adr_register += (ppu->state.control.INCREMENT_MODE ? 32 : 1);
     break;
   }
 }
@@ -169,20 +181,19 @@ void PPU_write(PPU *ppu, uint16_t adr, uint8_t data) {
     if (adr == 0x001C)
       adr = 0x000C;
     ppu->palette_ram[adr] = data;
-    printf("palette write adr:%04x val: %d\n",adr,data);
+    printf("palette write adr:%04x val: %d\n", adr, data);
   }
 }
 
-uint32_t PPU_get_color_from_palette_ram(PPU *ppu, uint8_t palette_idx,
+uint32_t PPU_get_color_from_palette_ram(PPU *ppu, uint16_t palette_idx,
                                         uint8_t pixel_val) {
-  uint8_t color_idx =
-      PPU_read(ppu, 0x3f00 + (palette_idx << 2) +
-                        pixel_val)&0x3f; /*0x3f00 = base palette address*/
+  uint8_t color_idx = PPU_read(ppu, 0x3f00 + (palette_idx << 2) + pixel_val) &
+                      0x3f; /*0x3f00 = base palette address*/
   return PPU_PALETTE_RGBA[0][color_idx];
 }
 
 void PPU_load_pattern_table(PPU *ppu, uint8_t table_n /*0 or 1*/) {
-  //uint32_t test[4]={0x222222ff, 0x888888ff, 0xaaaaaaff, 0xffffffff};
+  // uint32_t test[4]={0x222222ff, 0x888888ff, 0xaaaaaaff, 0xffffffff};
   for (int tile_y = 0; tile_y < 16; ++tile_y) {
     for (int tile_x = 0; tile_x < 16; ++tile_x) {
 
@@ -193,9 +204,9 @@ void PPU_load_pattern_table(PPU *ppu, uint8_t table_n /*0 or 1*/) {
         for (int col = 0; col < 8; ++col) {
           int x = 8 * tile_x + 7 - col; // invert on x-dir
           int y = 8 * tile_y + row;
-          ppu->pattern_table[128 * table_n + x + 128*2 * y] =
-              PPU_get_color_from_palette_ram(ppu,0,(low & 1) + (high & 1));
-              //test[(low & 1) + (high & 1)]; // the palette value 0,1,2 or 3.
+          ppu->pattern_table[128 * table_n + x + 128 * 2 * y] =
+              PPU_get_color_from_palette_ram(ppu, 0, (low & 1) + (high & 1));
+          // test[(low & 1) + (high & 1)]; // the palette value 0,1,2 or 3.
           low >>= 1;
           high >>= 1;
         }
@@ -204,17 +215,44 @@ void PPU_load_pattern_table(PPU *ppu, uint8_t table_n /*0 or 1*/) {
   }
 }
 
-void PPU_tick(PPU *ppu){
-  if(ppu->scan_line==-1&&ppu->cycle==1){
-    ppu->state.status.VERTICAL_BLANK=0;
+void PPU_tick(PPU *ppu) {
+  // All but 1 of the secanlines is visible to the user. The pre-render scanline
+  // at -1, is used to configure the "shifters" for the first visible scanline,
+  // 0.
+  if (ppu->scan_line >= -1 && ppu->scan_line < 240) {
+    if (ppu->scan_line == 0 && ppu->cycle == 0) {
+      // "Odd Frame" cycle skip
+      ppu->cycle = 1;
+    }
+    if (ppu->scan_line == -1 && ppu->cycle == 1) {
+      // Effectively start of new frame, so clear vertical blank flag
+      ppu->state.status.VERTICAL_BLANK = 0;
+    }
+    // ...
   }
 
-  if(ppu->scan_line==241&&ppu->cycle==1){
-    ppu->state.status.VERTICAL_BLANK=1;
-    if(ppu->state.control.ENABLE_NMI)ppu->state.nmi=1;
+  if (ppu->scan_line == -1 && ppu->cycle == 1) {
+    ppu->state.status.VERTICAL_BLANK = 0;
+  }
+if(ppu->scan_line>=241 && ppu->scan_line<261){
+  if (ppu->scan_line == 241 && ppu->cycle == 1) {
+    ppu->state.status.VERTICAL_BLANK = 1;
+    if (ppu->state.control.ENABLE_NMI)
+      ppu->state.nmi = 1;
+  }}
+
+  // advance counters
+  ppu->cycle++;
+  if (ppu->cycle >= 341) {
+    ppu->cycle = 0;
+    ppu->scan_line++;
+    if (ppu->scan_line >= 261) {
+      ppu->scan_line = -1;
+      ppu->frame_complete = 1;
+      ppu->frame_count++;
+    }
   }
 }
-
 
 // clang-format off
 uint32_t PPU_PALETTE_RGBA[11][64] = {
