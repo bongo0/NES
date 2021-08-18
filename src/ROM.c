@@ -418,6 +418,7 @@ uint8_t ROM_cpu_write(NES_ROM *rom, uint16_t adr, uint8_t data) {
 
 uint8_t ROM_ppu_read(NES_ROM *rom, uint16_t adr, uint8_t *data_out) {
   uint16_t map_adr = 0;
+  //printf("ppurom %p\n",rom);
   if(rom->mapper.ppu_read(rom->mapper.state,adr,&map_adr)){
     (*data_out) = rom->CHR_p[map_adr];
     return 1;

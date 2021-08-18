@@ -43,10 +43,12 @@ void GUI_asm_txt(GUI_context *gui_ctx, char **text, uint16_t size,
 void GUI_draw_image(int x, int y, int width, int height, GLuint texture_id,
                     uint8_t blendFlag);
 
-nk_bool GUI_color_txt_button(GUI_context *ctx, uint32_t rgba, const char *txt);
+nk_bool GUI_color_txt_button(GUI_context *ctx, uint32_t rgba, const char *txt, nk_flags txt_align);
 uint16_t GUI_palette_table(GUI_context *ctx);
 
 uint16_t GUI_memory_view(GUI_context *gctx, uint8_t *memory, size_t nbytes);
+uint16_t GUI_cpu_ram_view(GUI_context *gctx, NES_BUS *nes);
+
 void GUI_palette_view(GUI_context *gctx, NES_BUS *nes);
 
 struct nk_image GUI_image_rgba(GUI_context *gctx, uint32_t *img_data,

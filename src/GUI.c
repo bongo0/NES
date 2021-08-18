@@ -254,7 +254,7 @@ void GUI_cpu_state(GUI_context *gui_ctx, NES_BUS *nes) {
     snprintf(str4, 64, "Cycles: %lu", state.cycles_accumulated);
     nk_label(ctx, str4, NK_TEXT_LEFT);
 
-    nk_layout_row_static(ctx, 8, 530, 1);
+    /* nk_layout_row_static(ctx, 8, 530, 1);
     nk_label(ctx,
              "      00  01  02   03  04  05   06  07  08   09  0A  0B   0C  "
              "0D  0E  0F",
@@ -265,7 +265,7 @@ void GUI_cpu_state(GUI_context *gui_ctx, NES_BUS *nes) {
       GUI_memory_view(gui_ctx, &nes->ram[STACK_LOCATION], 0x100);
 
       nk_group_end(ctx);
-    }
+    } */
   }
   nk_end(ctx);
 }
@@ -276,7 +276,7 @@ void GUI_asm_txt(GUI_context *gui_ctx, char **text, uint16_t size,
   if (nk_begin(ctx, "asm",
                nk_rect(gui_ctx->win_width - 300, 470, 300,
                        gui_ctx->win_height - 130),
-               NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_TITLE)) {
+               NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_TITLE|NK_WINDOW_MOVABLE)) {
 
     // nk_layout_row_static(ctx, gui_ctx->win_height , 200, 1);
     nk_layout_row_static(ctx, 10, 220, 1);
@@ -317,8 +317,8 @@ void GUI_asm_txt(GUI_context *gui_ctx, char **text, uint16_t size,
   nk_end(ctx);
 }
 
+nk_bool GUI_color_txt_button(GUI_context *ctx, uint32_t rgba, const char *txt, nk_flags txt_align) {
 static struct nk_style_button color_txt_btn;
-nk_bool GUI_color_txt_button(GUI_context *ctx, uint32_t rgba, const char *txt) {
   color_txt_btn.rounding = 0;
   color_txt_btn.normal.data.color = RGBAu32_to_nk_color(rgba);
   color_txt_btn.hover.data.color = RGBAu32_to_nk_color(rgba);
@@ -328,7 +328,7 @@ nk_bool GUI_color_txt_button(GUI_context *ctx, uint32_t rgba, const char *txt) {
   color_txt_btn.text_normal = RGBAu32_to_nk_color(0xffffffff - rgba + 0xff);
   color_txt_btn.text_active = RGBAu32_to_nk_color(0xffffffff - rgba + 0xff);
 
-  color_txt_btn.text_alignment = NK_TEXT_ALIGN_LEFT;
+  color_txt_btn.text_alignment = txt_align;
   return nk_button_text_styled(ctx->nk_ctx, &color_txt_btn, txt, 2);
 }
 
@@ -338,81 +338,86 @@ uint16_t GUI_palette_table(GUI_context *ctx){
       uint16_t ret=0xff00;
       const int blen=32;
       nk_layout_row_static(ctx->nk_ctx,blen,blen,8);
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x0],"00") ){ret=0x00;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x1],"01") ){ret=0x01;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x2],"02") ){ret=0x02;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x3],"03") ){ret=0x03;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x4],"04") ){ret=0x04;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x5],"05") ){ret=0x05;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x6],"06") ){ret=0x06;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x7],"07") ){ret=0x07;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x0],"00",NK_TEXT_ALIGN_LEFT) ){ret=0x00;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x1],"01",NK_TEXT_ALIGN_LEFT) ){ret=0x01;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x2],"02",NK_TEXT_ALIGN_LEFT) ){ret=0x02;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x3],"03",NK_TEXT_ALIGN_LEFT) ){ret=0x03;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x4],"04",NK_TEXT_ALIGN_LEFT) ){ret=0x04;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x5],"05",NK_TEXT_ALIGN_LEFT) ){ret=0x05;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x6],"06",NK_TEXT_ALIGN_LEFT) ){ret=0x06;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x7],"07",NK_TEXT_ALIGN_LEFT) ){ret=0x07;}
       nk_layout_row_static(ctx->nk_ctx,blen,blen,8);
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x10],"10") ){ret=0x10;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x11],"11") ){ret=0x11;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x12],"12") ){ret=0x12;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x13],"13") ){ret=0x13;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x14],"14") ){ret=0x14;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x15],"15") ){ret=0x15;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x16],"16") ){ret=0x16;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x17],"17") ){ret=0x17;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x10],"10",NK_TEXT_ALIGN_LEFT) ){ret=0x10;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x11],"11",NK_TEXT_ALIGN_LEFT) ){ret=0x11;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x12],"12",NK_TEXT_ALIGN_LEFT) ){ret=0x12;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x13],"13",NK_TEXT_ALIGN_LEFT) ){ret=0x13;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x14],"14",NK_TEXT_ALIGN_LEFT) ){ret=0x14;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x15],"15",NK_TEXT_ALIGN_LEFT) ){ret=0x15;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x16],"16",NK_TEXT_ALIGN_LEFT) ){ret=0x16;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x17],"17",NK_TEXT_ALIGN_LEFT) ){ret=0x17;}
       nk_layout_row_static(ctx->nk_ctx,blen,blen,8);
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x20],"20")){ret=0x20;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x21],"21")){ret=0x21;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x22],"22")){ret=0x22;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x23],"23")){ret=0x23;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x24],"24")){ret=0x24;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x25],"25")){ret=0x25;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x26],"26")){ret=0x26;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x27],"27")){ret=0x27;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x20],"20",NK_TEXT_ALIGN_LEFT)){ret=0x20;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x21],"21",NK_TEXT_ALIGN_LEFT)){ret=0x21;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x22],"22",NK_TEXT_ALIGN_LEFT)){ret=0x22;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x23],"23",NK_TEXT_ALIGN_LEFT)){ret=0x23;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x24],"24",NK_TEXT_ALIGN_LEFT)){ret=0x24;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x25],"25",NK_TEXT_ALIGN_LEFT)){ret=0x25;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x26],"26",NK_TEXT_ALIGN_LEFT)){ret=0x26;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x27],"27",NK_TEXT_ALIGN_LEFT)){ret=0x27;}
       nk_layout_row_static(ctx->nk_ctx,blen,blen,8);
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x30],"30")){ret=0x30;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x31],"31")){ret=0x31;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x32],"32")){ret=0x32;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x33],"33")){ret=0x33;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x34],"34")){ret=0x34;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x35],"35")){ret=0x35;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x36],"36")){ret=0x36;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x37],"37")){ret=0x37;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x30],"30",NK_TEXT_ALIGN_LEFT)){ret=0x30;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x31],"31",NK_TEXT_ALIGN_LEFT)){ret=0x31;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x32],"32",NK_TEXT_ALIGN_LEFT)){ret=0x32;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x33],"33",NK_TEXT_ALIGN_LEFT)){ret=0x33;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x34],"34",NK_TEXT_ALIGN_LEFT)){ret=0x34;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x35],"35",NK_TEXT_ALIGN_LEFT)){ret=0x35;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x36],"36",NK_TEXT_ALIGN_LEFT)){ret=0x36;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x37],"37",NK_TEXT_ALIGN_LEFT)){ret=0x37;}
       nk_layout_row_static(ctx->nk_ctx,blen,blen,8);
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x8],"08")){ret=0x08;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x9],"09")){ret=0x09;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0xa],"0A")){ret=0x0A;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0xb],"0B")){ret=0x0B;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0xc],"0C")){ret=0x0C;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0xd],"0D")){ret=0x0D;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0xe],"0E")){ret=0x0E;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0xf],"0F")){ret=0x0F;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x8],"08",NK_TEXT_ALIGN_LEFT)){ret=0x08;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x9],"09",NK_TEXT_ALIGN_LEFT)){ret=0x09;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0xa],"0A",NK_TEXT_ALIGN_LEFT)){ret=0x0A;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0xb],"0B",NK_TEXT_ALIGN_LEFT)){ret=0x0B;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0xc],"0C",NK_TEXT_ALIGN_LEFT)){ret=0x0C;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0xd],"0D",NK_TEXT_ALIGN_LEFT)){ret=0x0D;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0xe],"0E",NK_TEXT_ALIGN_LEFT)){ret=0x0E;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0xf],"0F",NK_TEXT_ALIGN_LEFT)){ret=0x0F;}
       nk_layout_row_static(ctx->nk_ctx,blen,blen,8);
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x18],"18")){ret=0x18;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x19],"19")){ret=0x19;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x1a],"1a")){ret=0x1a;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x1b],"1b")){ret=0x1b;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x1c],"1c")){ret=0x1c;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x1d],"1d")){ret=0x1d;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x1e],"1e")){ret=0x1e;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x1f],"1f")){ret=0x1f;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x18],"18",NK_TEXT_ALIGN_LEFT)){ret=0x18;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x19],"19",NK_TEXT_ALIGN_LEFT)){ret=0x19;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x1a],"1a",NK_TEXT_ALIGN_LEFT)){ret=0x1a;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x1b],"1b",NK_TEXT_ALIGN_LEFT)){ret=0x1b;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x1c],"1c",NK_TEXT_ALIGN_LEFT)){ret=0x1c;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x1d],"1d",NK_TEXT_ALIGN_LEFT)){ret=0x1d;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x1e],"1e",NK_TEXT_ALIGN_LEFT)){ret=0x1e;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x1f],"1f",NK_TEXT_ALIGN_LEFT)){ret=0x1f;}
       nk_layout_row_static(ctx->nk_ctx,blen,blen,8);
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x28],"28")){ret=0x28;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x29],"29")){ret=0x29;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x2a],"2a")){ret=0x2a;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x2b],"2b")){ret=0x2b;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x2c],"2c")){ret=0x2c;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x2d],"2d")){ret=0x2d;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x2e],"2e")){ret=0x2e;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x2f],"2f")){ret=0x2f;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x28],"28",NK_TEXT_ALIGN_LEFT)){ret=0x28;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x29],"29",NK_TEXT_ALIGN_LEFT)){ret=0x29;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x2a],"2a",NK_TEXT_ALIGN_LEFT)){ret=0x2a;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x2b],"2b",NK_TEXT_ALIGN_LEFT)){ret=0x2b;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x2c],"2c",NK_TEXT_ALIGN_LEFT)){ret=0x2c;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x2d],"2d",NK_TEXT_ALIGN_LEFT)){ret=0x2d;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x2e],"2e",NK_TEXT_ALIGN_LEFT)){ret=0x2e;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x2f],"2f",NK_TEXT_ALIGN_LEFT)){ret=0x2f;}
       nk_layout_row_static(ctx->nk_ctx,blen,blen,8);
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x38],"38")){ret=0x38;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x39],"39")){ret=0x39;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x3a],"3a")){ret=0x3a;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x3b],"3b")){ret=0x3b;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x3c],"3c")){ret=0x3c;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x3d],"3d")){ret=0x3d;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x3e],"3e")){ret=0x3e;}
-      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x3f],"3f")){ret=0x3f;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x38],"38",NK_TEXT_ALIGN_LEFT)){ret=0x38;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x39],"39",NK_TEXT_ALIGN_LEFT)){ret=0x39;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x3a],"3a",NK_TEXT_ALIGN_LEFT)){ret=0x3a;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x3b],"3b",NK_TEXT_ALIGN_LEFT)){ret=0x3b;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x3c],"3c",NK_TEXT_ALIGN_LEFT)){ret=0x3c;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x3d],"3d",NK_TEXT_ALIGN_LEFT)){ret=0x3d;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x3e],"3e",NK_TEXT_ALIGN_LEFT)){ret=0x3e;}
+      if(GUI_color_txt_button(ctx, PPU_PALETTE_RGBA[0][0x3f],"3f",NK_TEXT_ALIGN_LEFT)){ret=0x3f;}
       return ret;
 }
 
 // clang-format on
+
+
+uint16_t GUI_memory_view(GUI_context *gctx, uint8_t *memory, size_t nbytes) {
+  struct nk_context *ctx = gctx->nk_ctx;
+  struct nk_rect tmp;
 
 static char str[3];
 static int len_s;
@@ -420,9 +425,6 @@ static uint8_t popup_edit = 0;
 static size_t edit = 0;
 static struct nk_rect b;
 
-uint16_t GUI_memory_view(GUI_context *gctx, uint8_t *memory, size_t nbytes) {
-  struct nk_context *ctx = gctx->nk_ctx;
-  struct nk_rect tmp;
   char *mem_hex = malloc(3 * nbytes);
   for (size_t i = 0; i < nbytes; ++i) {
     snprintf(&mem_hex[i * 2], 3, "%02X", memory[i]);
@@ -431,9 +433,73 @@ uint16_t GUI_memory_view(GUI_context *gctx, uint8_t *memory, size_t nbytes) {
   nk_layout_row_static(ctx, 16, 26, 16 + 1);
   size_t row = 0;
   nk_label(ctx, "0000", NK_TEXT_ALIGN_CENTERED);
+  const uint32_t def_color=0x353535ff;
   for (size_t i = 0; i < nbytes; ++i) {
     tmp = nk_widget_bounds(ctx);
-    if (nk_button_text(ctx, &mem_hex[i * 2], 2)) {
+    if (GUI_color_txt_button(gctx,def_color, &mem_hex[i * 2],NK_TEXT_ALIGN_CENTERED)) {
+      edit = i;
+      popup_edit = 1;
+      b = tmp;
+    }
+    if ((i + 1) % 16 == 0) {
+      nk_layout_row_static(ctx, 16, 26, 16 + 1);
+      row += 0x10;
+      char crow[5];
+      snprintf(crow, 5, "%04lX", row);
+      nk_label(ctx, crow, NK_TEXT_ALIGN_CENTERED);
+    }
+  }
+
+  if (popup_edit) {
+    nk_layout_space_begin(ctx, NK_STATIC, 32, 1);
+    struct nk_rect b2 = nk_layout_space_rect_to_local(ctx, b);
+    b2.x -= 3;
+    b2.y -= 3;
+    b2.h += 3;
+    b2.w += 3;
+    nk_layout_space_push(ctx, b2);
+    nk_flags active = nk_edit_string(ctx, NK_EDIT_FIELD | NK_EDIT_SIG_ENTER,
+                                     str, &len_s, 3, nk_filter_hex);
+    if (active & NK_EDIT_COMMITED) {
+      memory[edit] = strtoul(str, NULL, 16);
+      popup_edit = 0;
+    }
+    nk_layout_space_end(ctx);
+  }
+  // nk_flags f = nk_edit_string(ctx, NK_EDIT_SIMPLE, str, &len_s, 64,
+  // nk_filter_hex); if( !(f&NK_EDIT_ACTIVE) )
+  // {snprintf(str,3,"%02X",memory[0]);} printf("%s \n",str); else
+  return 0;
+}
+
+uint16_t GUI_cpu_ram_view(GUI_context *gctx, NES_BUS *nes) {
+  uint8_t *memory = nes->ram;
+  struct nk_context *ctx = gctx->nk_ctx;
+  struct nk_rect tmp;
+
+static char str[3];
+static int len_s;
+static uint8_t popup_edit = 0;
+static size_t edit = 0;
+static struct nk_rect b;
+
+  char *mem_hex = malloc(3 * CPU_RAM_SIZE);
+  for (size_t i = 0; i < CPU_RAM_SIZE; ++i) {
+    snprintf(&mem_hex[i * 2], 3, "%02X", memory[i]);
+  }
+
+  nk_layout_row_static(ctx, 16, 26, 16 + 1);
+  size_t row = 0;
+  nk_label(ctx, "0000", NK_TEXT_ALIGN_CENTERED);
+  const uint32_t def_color=0x353535ff;
+  const uint32_t stack_color=0x404048ff;
+  const uint32_t SP_color=0x694940ff;
+  for (size_t i = 0; i < CPU_RAM_SIZE; ++i) {
+    uint32_t color = def_color;
+    if(i>=0x100&&i<=0x1ff)color=stack_color;
+    if(i==0x100+nes->cpu.state.SP)color=SP_color;
+    tmp = nk_widget_bounds(ctx);
+    if (GUI_color_txt_button(gctx,color, &mem_hex[i * 2],NK_TEXT_ALIGN_CENTERED)) {
       edit = i;
       popup_edit = 1;
       b = tmp;
@@ -539,7 +605,7 @@ void GUI_ppu_state(GUI_context *gctx, const PPU *ppu) {
 
   if (nk_begin(ctx, "ppu",
                nk_rect(gctx->win_width - 900, 30, 290, gctx->win_height - 30),
-               NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_TITLE)) {
+               NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_TITLE | NK_WINDOW_MOVABLE)) {
     char str[16];
 
     nk_layout_row_dynamic(ctx, 16, 2);
@@ -559,7 +625,7 @@ void GUI_ppu_state(GUI_context *gctx, const PPU *ppu) {
 
     nk_layout_row_dynamic(ctx, 16, 2);
     nk_label(ctx, "addr:", NK_TEXT_ALIGN_LEFT);
-    snprintf(str, 16, "%04X ", ppu->state.adr_register);
+    snprintf(str, 16, "%04X ", ppu->state.vram_adr.reg);
     nk_label(ctx, str, NK_TEXT_ALIGN_RIGHT);
 
     nk_layout_row_dynamic(ctx, 16, 2);

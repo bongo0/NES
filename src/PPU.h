@@ -64,17 +64,14 @@ typedef struct {
   PPU_loopy loopy;
 
   uint32_t sprite_ram_adr;
-  PPU_loopy video_ram_adr;
-  PPU_loopy tmp_video_ram_adr;
-  uint8_t x_scroll;
+  PPU_loopy vram_adr;
+  PPU_loopy t_vram_adr;
+  uint8_t x_scroll; // i.e. fine_x  
   uint8_t write_toggle;
-  uint16_t high_bit_shift;
-  uint16_t low_bit_shift;
   
   uint8_t adr_write_latch;
   uint8_t data_buf; // reading from ppu is delayed by one cycle, buffer for
                         // that data
-  uint16_t adr_register;
 
   uint8_t nmi;
 } PPU_state;
@@ -90,9 +87,22 @@ typedef struct {
 
   uint8_t palette_ram[0x20];
   uint8_t sprite_ram[0x100];
+  uint8_t name_table[2*0x400];
   uint8_t pattern_ram[2 * 0x1000];
 
-  uint32_t pattern_table[2 * 128 * 128];
+  uint32_t pattern_table_img[2 * 128 * 128];
+  uint8_t pattern_table[2 * 128 * 128];
+
+  uint32_t screen[256*240];
+
+  uint8_t next_bg_tile_id;
+  uint8_t next_bg_tile_attrib;
+  uint8_t next_bg_tile_lsb;
+  uint8_t next_bg_tile_msb;
+  uint16_t high_bg_shifter;
+  uint16_t low_bg_shifter;
+  uint16_t high_bg_shifter_attrib;
+  uint16_t low_bg_shifter_attrib;
 
   NES_ROM *rom;
 } PPU;

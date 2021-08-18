@@ -485,7 +485,7 @@ void CPU_NMI(CPU_6502 *cpu) {
   uint8_t low = CPU_read_memory(cpu, CPU_NMI_VECTOR);
   uint8_t high = CPU_read_memory(cpu, CPU_NMI_VECTOR+1);
   cpu->state.PC = low | (high << 8);
-printf("NMI -- %04X -> %04X\n",CPU_NMI_VECTOR,cpu->state.PC);
+
   cpu->state.cycle_count = 8;
 }
 
