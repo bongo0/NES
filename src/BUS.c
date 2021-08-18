@@ -8,8 +8,9 @@ void BUS_cpu_write(NES_BUS *nes, uint16_t adr, uint8_t data) {
   if (adr <= 0x1fff) {
     nes->ram[adr & 0x07ff] = data; // mirror the range every 2048
   } else if (adr >= 0x2000 && adr <= 0x3fff) {
-
     PPU_cpu_write(&nes->ppu, adr & 0x0007, data);
+  }else if (adr == 0x4016 || adr == 0x4017){
+    nes->controller_state[adr & 1] = nes->controller[adr & 1];
   }
 }
 
@@ -23,8 +24,11 @@ uint8_t BUS_cpu_read(NES_BUS *nes, uint16_t adr) {
     return nes->ram[adr & 0x07ff]; // mirror the range every 2048
   } else if (adr >= 0x2000 && adr <= 0x3fff) {
     return PPU_cpu_read(&nes->ppu, adr & 0x0007);
+  }else if (adr == 0x4016 || adr == 0x4017){
+    ret=(nes->controller_state[adr & 1]&0x80)>0;
+    nes->controller_state[adr & 1]<<=1;
   }
-  return 0;
+  return ret;
 }
 
 void BUS_init(NES_BUS *nes, NES_ROM *rom){

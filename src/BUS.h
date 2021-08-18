@@ -17,7 +17,15 @@ typedef struct bus {
   CPU_6502 cpu;
   PPU ppu;
   NES_ROM *rom;
-  uint8_t ram[CPU_RAM_SIZE]; // CPU RAM
+  // CPU RAM
+  uint8_t ram[CPU_RAM_SIZE];
+  // shift registers representing the controller state
+  uint8_t controller_state[2]; // internal
+  // controller state for interfacing
+
+  // bit    7 6 5       4     3   2     1     0
+  // button	A	B	Select	Start	Up	Down	Left	Right
+  uint8_t controller[2];
   uint64_t tick_counter;
 } NES_BUS;
 

@@ -61,11 +61,25 @@ int main(int argc, char **argv) {
           break;
         }
       default:
+        //printf("%d\n", event.key.keysym.scancode);
         nk_sdl_handle_event(&event);
         close = 0;
         break;
       }
     }
+    const uint8_t *keyboard_state = SDL_GetKeyboardState(NULL);
+    // clang-format off
+    // Controller #1
+    nes.controller[0]=0;
+    if(keyboard_state[SDL_SCANCODE_D]){           nes.controller[0]|=(1<<0);}//Right
+    if(keyboard_state[SDL_SCANCODE_A]){           nes.controller[0]|=(1<<1);}//Left
+    if(keyboard_state[SDL_SCANCODE_S]){           nes.controller[0]|=(1<<2);}//Down
+    if(keyboard_state[SDL_SCANCODE_W]){           nes.controller[0]|=(1<<3);}//Up
+    if(keyboard_state[SDL_SCANCODE_L]){           nes.controller[0]|=(1<<4);}//Start
+    if(keyboard_state[SDL_SCANCODE_K]){           nes.controller[0]|=(1<<5);}//Select
+    if(keyboard_state[SDL_SCANCODE_LEFTBRACKET]){ nes.controller[0]|=(1<<6);}//B
+    if(keyboard_state[SDL_SCANCODE_RIGHTBRACKET]){nes.controller[0]|=(1<<7);}//A
+    // clang-format on
     nk_input_end(gui_ctx.nk_ctx);
     if (run) {
       for (int i = 0; i < 3000; ++i) {
@@ -108,27 +122,26 @@ int main(int argc, char **argv) {
                  "0D  0E  0F",
                  nk_rect(50, 400, 530, 380 + 16),
                  NK_WINDOW_TITLE | NK_WINDOW_BORDER | NK_WINDOW_MOVABLE |
-                     NK_WINDOW_SCALABLE|NK_WINDOW_MINIMIZABLE)) {
+                     NK_WINDOW_SCALABLE | NK_WINDOW_MINIMIZABLE)) {
       GUI_cpu_ram_view(&gui_ctx, &nes);
     }
     nk_end(gui_ctx.nk_ctx);
-
 
     if (nk_begin(gui_ctx.nk_ctx,
                  "nam  00  01  02   03  04  05   06  07  08   09  0A  0B   0C  "
                  "0D  0E  0F",
                  nk_rect(50, 400, 530, 380 + 16),
                  NK_WINDOW_TITLE | NK_WINDOW_BORDER | NK_WINDOW_MOVABLE |
-                     NK_WINDOW_SCALABLE|NK_WINDOW_MINIMIZABLE)) {
-      GUI_memory_view(&gui_ctx, nes.ppu.name_table,2048);
+                     NK_WINDOW_SCALABLE | NK_WINDOW_MINIMIZABLE)) {
+      GUI_memory_view(&gui_ctx, nes.ppu.name_table, 2048);
     }
     nk_end(gui_ctx.nk_ctx);
 
-    if (nk_begin(gui_ctx.nk_ctx, "screen", nk_rect(0, 0, 256 * 2, 240 * 2),
+    if (nk_begin(gui_ctx.nk_ctx, "screen", nk_rect(0, 0, 256 * 2, 256 * 2),
                  NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_TITLE | NK_WINDOW_BORDER |
                      NK_WINDOW_MOVABLE | NK_WINDOW_SCALABLE)) {
       float wh = nk_window_get_height(gui_ctx.nk_ctx);
-      nk_layout_row_dynamic(gui_ctx.nk_ctx, wh, 1);
+      nk_layout_row_dynamic(gui_ctx.nk_ctx, wh - 50, 1);
       GUI_image_refresh(&gui_ctx, &nes_screen, nes.ppu.screen, 256, 240);
       nk_image(gui_ctx.nk_ctx, nes_screen);
     }

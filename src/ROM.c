@@ -69,7 +69,7 @@ const char *NES_INPUT_TYPE_STR[] = {"INP_UNSPECIFIED",
                                     "UFORCE",
                                     "LASTENTRY"};
 
-void ROM_init_mapper(NES_ROM *rom) {
+uint8_t ROM_init_mapper(NES_ROM *rom) {
   switch (rom->mapper_id) {
   case 0:
     rom->mapper.cpu_read = &Mapper000_cpu_read;
@@ -80,8 +80,11 @@ void ROM_init_mapper(NES_ROM *rom) {
     ((Mapper000 *)rom->mapper.state)->CHR_size = rom->CHR_size;
     ((Mapper000 *)rom->mapper.state)->PRG_size = rom->PRG_size;
     break;
-  default: break;
+  default: 
+  return 0;
+  break;
   }
+  return 1;
 }
 
 
@@ -351,7 +354,6 @@ void ROM_load_from_disc(char *file_name, NES_ROM *rom) {
   }
   rom->PRG_p = &rom->data[NES_ROM_HEADER_SIZE + (rom->has_trainer ? 512 : 0)];
 
-  ROM_init_mapper(rom);
 
   // logging stuff
   LOG_SUCCESS(
@@ -380,6 +382,11 @@ void ROM_load_from_disc(char *file_name, NES_ROM *rom) {
       NES_INPUT_TYPE_STR[rom->input_type], NES_VS_SYSTEM_TYPE_STR[rom->vs_type],
       NES_PPU_MODEL_STR[rom->ppu_model], rom->save_ram_size, rom->work_ram_size,
       rom->chr_ram_size, rom->save_chr_ram_size);
+  
+  if(!ROM_init_mapper(rom)){
+    LOG_ERROR("ROM mapper not implemented. Mapper id: %d\n",rom->mapper_id);
+    exit(EXIT_FAILURE); // TODO handle error better
+  }
 }
 
 void ROM_free(NES_ROM *rom) {
