@@ -6,8 +6,9 @@ const char *NES_PPU_MODEL_STR[] = {
     "PPU_2C05C", "PPU_2C05D", "PPU_2C05E",
 };
 
-const char *NES_MIRRORING_TYPE_STR[] = {"MIRROR_FOUR_SCREENS",
-                                        "MIRROR_VERTICAL", "MIRROR_HORIZONTAL"};
+const char *NES_MIRRORING_TYPE_STR[] = {
+    "MIRROR_ONESCREEN_LOW", "MIRROR_ONESCREEN_HIGH", "MIRROR_VERTICAL",
+    "MIRROR_HORIZONTAL", "MIRROR_FOUR_SCREENS"};
 
 const char *NES_SYSTEM_TYPE_STR[] = {
     "NTSC",      "PAL",         "DENDY", "FAMICOM",
@@ -76,18 +77,36 @@ uint8_t ROM_init_mapper(NES_ROM *rom) {
     rom->mapper.cpu_write = &Mapper000_cpu_write;
     rom->mapper.ppu_read = &Mapper000_ppu_read;
     rom->mapper.ppu_write = &Mapper000_ppu_write;
+    rom->mapper.mirror_mode = &Mapper000_mirror;
+    rom->mapper.reset = &Mapper000_reset;
     rom->mapper.state = malloc(sizeof(Mapper000));
     ((Mapper000 *)rom->mapper.state)->CHR_size = rom->CHR_size;
     ((Mapper000 *)rom->mapper.state)->PRG_size = rom->PRG_size;
+    ((Mapper000 *)rom->mapper.state)->mirror_mode = rom->mirror_type;
     break;
-  default: 
-  return 0;
-  break;
+  case 1:
+    rom->mapper.cpu_read = &Mapper001_cpu_read;
+    rom->mapper.cpu_write = &Mapper001_cpu_write;
+    rom->mapper.ppu_read = &Mapper001_ppu_read;
+    rom->mapper.ppu_write = &Mapper001_ppu_write;
+    rom->mapper.mirror_mode = &Mapper001_mirror;
+    rom->mapper.reset = &Mapper001_reset;
+    rom->mapper.state = malloc(sizeof(Mapper001));
+    ((Mapper001 *)rom->mapper.state)->CHR_size = rom->CHR_size;
+    ((Mapper001 *)rom->mapper.state)->PRG_size = rom->PRG_size;
+    ((Mapper001 *)rom->mapper.state)->mirror_mode = rom->mirror_type;
+    ((Mapper001 *)rom->mapper.state)->RAM = malloc(32 * 1024);
+    break;
+  default: return 0; break;
   }
   return 1;
 }
 
+void ROM_reset_mapper(NES_ROM *rom) {
+  rom->mapper.reset(rom->mapper.state);
+}
 
+#define CHR_RAM_SIZE 8192
 void ROM_load_from_disc(char *file_name, NES_ROM *rom) {
   rom->version = 0;
   FILE *f;
@@ -271,7 +290,7 @@ void ROM_load_from_disc(char *file_name, NES_ROM *rom) {
   // vs system PPU model
   if (rom->version == NES20) {
     switch (rom->data[13] & 0x0f) {
-    case 0: rom->ppu_model = PPU_2C03;
+    case 0: rom->ppu_model = PPU_2C03;break;
     case 1:
       LOG_WARNING("Unsupported PPU model 2C03: %s\n", file_name);
       rom->ppu_model = PPU_2C03;
@@ -329,31 +348,31 @@ void ROM_load_from_disc(char *file_name, NES_ROM *rom) {
   // validation stuff
   if ((rom->PRG_size + rom->CHR_size + (rom->has_trainer ? 512 : 0)) +
           NES_ROM_HEADER_SIZE >
-      size) {
-    LOG_ERROR("corrupted ROM file, larger than header tells: %s\n", file_name);
-    free(rom->data);
-    rom->size = 0;
-    rom->data = NULL;
-    return;
+      (size_t)size) {
+    LOG_WARNING("corrupted ROM file, larger than header tells: %s\n", file_name);
+    //free(rom->data);
+    //rom->size = 0;
+    //rom->data = NULL;
+    //return;
   } else if ((rom->PRG_size + rom->CHR_size + (rom->has_trainer ? 512 : 0)) +
                  NES_ROM_HEADER_SIZE <
-             size) {
-    LOG_ERROR("corrupted ROM file, smaller than header tells: %s\n", file_name);
-    free(rom->data);
-    rom->size = 0;
-    rom->data = NULL;
-    return;
+             (size_t)size) {
+    LOG_WARNING("corrupted ROM file, smaller than header tells: %s\n", file_name);
+    //free(rom->data);
+    //rom->size = 0;
+    //rom->data = NULL;
+    //return;
   }
 
   // set up CHR and PRG data pointers
   if (rom->CHR_size == 0) {
-    rom->CHR_p = NULL;
+    // allocate CHR RAM
+    rom->CHR_p = malloc(CHR_RAM_SIZE);
   } else {
     rom->CHR_p = &rom->data[NES_ROM_HEADER_SIZE + (rom->has_trainer ? 512 : 0) +
                             rom->PRG_size];
   }
   rom->PRG_p = &rom->data[NES_ROM_HEADER_SIZE + (rom->has_trainer ? 512 : 0)];
-
 
   // logging stuff
   LOG_SUCCESS(
@@ -382,32 +401,38 @@ void ROM_load_from_disc(char *file_name, NES_ROM *rom) {
       NES_INPUT_TYPE_STR[rom->input_type], NES_VS_SYSTEM_TYPE_STR[rom->vs_type],
       NES_PPU_MODEL_STR[rom->ppu_model], rom->save_ram_size, rom->work_ram_size,
       rom->chr_ram_size, rom->save_chr_ram_size);
-  
-  if(!ROM_init_mapper(rom)){
-    LOG_ERROR("ROM mapper not implemented. Mapper id: %d\n",rom->mapper_id);
+
+  if (!ROM_init_mapper(rom)) {
+    LOG_ERROR("ROM mapper not implemented. Mapper id: %d\n", rom->mapper_id);
     exit(EXIT_FAILURE); // TODO handle error better
   }
 }
 
 void ROM_free(NES_ROM *rom) {
   free(rom->data);
+  if (rom->CHR_size == 0)
+    free(rom->CHR_p);
+
+  // free mapper
+  switch (rom->mapper_id) {
+  case 0: break;
+  case 1: free(((Mapper001 *)rom->mapper.state)->RAM);
+  default: break;
+  }
   free(rom->mapper.state);
+
   rom->size = 0;
   rom->data = NULL;
 }
 
-uint8_t *ROM_get_CHR_p(NES_ROM *rom) {
-  return &rom->data[NES_ROM_HEADER_SIZE + (rom->has_trainer ? 512 : 0) +
-                    rom->PRG_size];
-}
-
-uint8_t *ROM_get_PRG_p(NES_ROM *rom) {
-  return &rom->data[NES_ROM_HEADER_SIZE + (rom->has_trainer ? 512 : 0)];
-}
-
 uint8_t ROM_cpu_read(NES_ROM *rom, uint16_t adr, uint8_t *data_out) {
   uint16_t map_adr = 0;
-  if(rom->mapper.cpu_read(rom->mapper.state,adr,&map_adr)){
+  uint8_t map_flag = 0;
+  if (rom->mapper.cpu_read(rom->mapper.state, adr, &map_adr, data_out)) {
+    if (map_flag & MAP_RAM) {
+      // data has already been assigned by the mapper
+      return 1;
+    }
     (*data_out) = rom->PRG_p[map_adr];
     return 1;
   }
@@ -415,8 +440,14 @@ uint8_t ROM_cpu_read(NES_ROM *rom, uint16_t adr, uint8_t *data_out) {
 }
 
 uint8_t ROM_cpu_write(NES_ROM *rom, uint16_t adr, uint8_t data) {
-    uint16_t map_adr = 0;
-  if(rom->mapper.cpu_write(rom->mapper.state,adr,&map_adr)){
+  uint16_t map_adr = 0;
+  uint8_t map_flag = 0;
+  if ((map_flag =
+           rom->mapper.cpu_write(rom->mapper.state, adr, &map_adr, &data))) {
+    if (map_flag & MAP_RAM) {
+      // data has already been assigned by the mapper
+      return 1;
+    }
     rom->PRG_p[map_adr] = data;
     return 1;
   }
@@ -425,8 +456,8 @@ uint8_t ROM_cpu_write(NES_ROM *rom, uint16_t adr, uint8_t data) {
 
 uint8_t ROM_ppu_read(NES_ROM *rom, uint16_t adr, uint8_t *data_out) {
   uint16_t map_adr = 0;
-  //printf("ppurom %p\n",rom);
-  if(rom->mapper.ppu_read(rom->mapper.state,adr,&map_adr)){
+
+  if (rom->mapper.ppu_read(rom->mapper.state, adr, &map_adr, data_out)) {
     (*data_out) = rom->CHR_p[map_adr];
     return 1;
   }
@@ -434,14 +465,10 @@ uint8_t ROM_ppu_read(NES_ROM *rom, uint16_t adr, uint8_t *data_out) {
 }
 
 uint8_t ROM_ppu_write(NES_ROM *rom, uint16_t adr, uint8_t data) {
-    uint16_t map_adr = 0;
-  if(rom->mapper.ppu_write(rom->mapper.state,adr,&map_adr)){
+  uint16_t map_adr = 0;
+  if (rom->mapper.ppu_write(rom->mapper.state, adr, &map_adr, &data)) {
     rom->CHR_p[map_adr] = data;
     return 1;
   }
   return 0;
-}
-
-void ROM_reset_mapper(NES_ROM *rom){
-  
 }

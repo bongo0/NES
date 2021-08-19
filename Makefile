@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS = -std=c11 -Wall -pedantic -g
+CFLAGS = -std=c11 -Wall -pedantic -Wextra -Wmaybe-uninitialized -Wno-unused-parameter -g
 
 INCLUDES := $(shell pkg-config sdl2 glew --cflags --libs) -lSDL2_ttf -lm
 HEADERS := $(wildcard src/*.h src/*/*.h)

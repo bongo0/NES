@@ -66,35 +66,44 @@ typedef struct {
   uint32_t sprite_ram_adr;
   PPU_loopy vram_adr;
   PPU_loopy t_vram_adr;
-  uint8_t x_scroll; // i.e. fine_x  
+  uint8_t x_scroll; // i.e. fine_x
   uint8_t write_toggle;
-  
+
   uint8_t adr_write_latch;
   uint8_t data_buf; // reading from ppu is delayed by one cycle, buffer for
-                        // that data
+                    // that data
 
   uint8_t nmi;
 } PPU_state;
+
+/* typedef struct {
+  uint8_t y;         // Y position of sprite
+  uint8_t id;        // ID of tile from pattern memory
+  uint8_t attribute; // Flags define how sprite should be rendered
+  uint8_t x;         // X position of sprite
+} Sprite_OA; */
 
 typedef struct {
   PPU_state state;
 
   int32_t scan_line;
   uint32_t cycle;
+  uint8_t odd_frame;
   uint8_t frame_complete;
   uint32_t frame_count;
   uint64_t master_clock;
 
   uint8_t palette_ram[0x20];
   uint8_t sprite_ram[0x100];
-  uint8_t name_table[2*0x400];
+  uint8_t name_table[2 * 0x400];
   uint8_t pattern_ram[2 * 0x1000];
 
   uint32_t pattern_table_img[2 * 128 * 128];
   uint8_t pattern_table[2 * 128 * 128];
 
-  uint32_t screen[256*240];
+  uint32_t screen[256 * 240];
 
+  // background rendering stuff
   uint8_t next_bg_tile_id;
   uint8_t next_bg_tile_attrib;
   uint8_t next_bg_tile_lsb;
@@ -103,6 +112,27 @@ typedef struct {
   uint16_t low_bg_shifter;
   uint16_t high_bg_shifter_attrib;
   uint16_t low_bg_shifter_attrib;
+  // Sprite rendering stuff
+
+  // Object Attribute Memory
+  // Each attrib has 4 bytes, in order:
+  // Y position of sprite
+  // ID of tile from pattern memory
+  // Flags define how sprite should be rendered
+  // X position of sprite
+#define OAM_y(i) (4 * i + 0)
+#define OAM_id(i) (4 * i + 1)
+#define OAM_attrib(i) (4 * i + 2)
+#define OAM_x(i) (4 * i + 3)
+  uint8_t OAM[64 * 4];
+
+  uint8_t OAM_adr;
+  uint8_t sprite_scan_line_OA[8*4];
+  uint8_t sprite_count;
+  uint8_t sprite_pattern_low[8];
+  uint8_t sprite_pattern_high[8];
+  uint8_t sprite_0_hit_possible;
+  uint8_t sprite_0_is_rendering;
 
   NES_ROM *rom;
 } PPU;

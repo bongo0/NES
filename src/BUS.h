@@ -15,7 +15,14 @@
 
 typedef struct bus {
   CPU_6502 cpu;
+
   PPU ppu;
+  uint8_t dma_page_adr;
+  uint8_t dma_adr;
+  uint8_t dma_data;
+  uint8_t dma_transfer;
+  uint8_t dma_sync;
+
   NES_ROM *rom;
   // CPU RAM
   uint8_t ram[CPU_RAM_SIZE];
@@ -37,5 +44,6 @@ void BUS_load_rom(NES_BUS *nes, NES_ROM *rom);
 void BUS_init(NES_BUS *nes, NES_ROM *rom);
 void BUS_reset(NES_BUS *nes);
 void BUS_tick(NES_BUS *nes);
+void BUS_free(NES_BUS *nes);
 
 #endif // BUS_H

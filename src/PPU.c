@@ -17,6 +17,7 @@ void PPU_init(PPU *ppu, NES_ROM *rom) {
 
   ppu->scan_line = 0;
   ppu->cycle = 0;
+  ppu->odd_frame = 0;
   ppu->frame_count = 0;
   ppu->frame_complete = 0;
   ppu->master_clock = 0;
@@ -29,6 +30,11 @@ void PPU_init(PPU *ppu, NES_ROM *rom) {
   ppu->high_bg_shifter = 0;
   ppu->high_bg_shifter_attrib = 0;
   ppu->low_bg_shifter_attrib = 0;
+
+  ppu->sprite_0_hit_possible = 0;
+  ppu->sprite_0_is_rendering = 0;
+  ppu->sprite_count = 0;
+  ppu->OAM_adr = 0;
 
   ppu->rom = rom;
 }
@@ -57,8 +63,14 @@ void PPU_reset(PPU *ppu) {
   ppu->high_bg_shifter_attrib = 0;
   ppu->low_bg_shifter_attrib = 0;
 
+  ppu->sprite_0_hit_possible = 0;
+  ppu->sprite_0_is_rendering = 0;
+  ppu->sprite_count = 0;
+  ppu->OAM_adr = 0;
+
   ppu->scan_line = 0;
   ppu->cycle = 0;
+  ppu->odd_frame = 0;
   ppu->frame_count = 0;
   ppu->frame_complete = 0;
   ppu->master_clock = 0;
@@ -71,6 +83,7 @@ uint8_t PPU_cpu_read(PPU *ppu, uint16_t adr) {
   case 0x0000: // Control
     break;
   case 0x0001: // Mask
+    //data = ppu->OAM_adr; // PPU open buss weirdness
     break;
   case 0x0002: // Status --- unused bits are noise usually what was last in the
                // data buffer
@@ -82,6 +95,7 @@ uint8_t PPU_cpu_read(PPU *ppu, uint16_t adr) {
   case 0x0003: // OAM Address
     break;
   case 0x0004: // OAM Data
+    data = ppu->OAM[ppu->OAM_adr];
     break;
   case 0x0005: // Scroll
     break;
@@ -120,8 +134,11 @@ void PPU_cpu_write(PPU *ppu, uint16_t adr, uint8_t data) {
   case 0x0002: // Status -- cant write to this
     break;
   case 0x0003: // OAM Address
+    ppu->OAM_adr = data;
     break;
   case 0x0004: // OAM Data
+    ppu->OAM[ppu->OAM_adr] = data;
+    ppu->OAM_adr++;
     break;
   case 0x0005:                             // Scroll
     if (ppu->state.adr_write_latch == 0) { // flip flops between x/y
@@ -160,35 +177,36 @@ void PPU_cpu_write(PPU *ppu, uint16_t adr, uint8_t data) {
 
 uint8_t PPU_read(PPU *ppu, uint16_t adr) {
   adr &= 0x3fff;
-  uint8_t data;
+  uint8_t data=0;
   if (ROM_ppu_read(ppu->rom, adr, &data))
     return data;
 
   if (adr <= 0x1fff) { // pattern
-    return ppu->pattern_ram[adr];
+    data = ppu->pattern_ram[adr];
   } else if (adr >= 0x2000 && adr <= 0x3eff) { // name table
     adr &= 0x0FFF;
-    if (ppu->rom->mirror_type == MIRROR_VERTICAL) {
-      if (adr >= 0x0000 && adr <= 0x03FF)
-        return ppu->name_table[0 + (adr & 0x03FF)];
+    if (ppu->rom->mapper.mirror_mode(ppu->rom->mapper.state) ==
+        MIRROR_VERTICAL) {
+      if (adr <= 0x03FF)
+        data = ppu->name_table[0 + (adr & 0x03FF)];
       if (adr >= 0x0400 && adr <= 0x07FF)
-        return ppu->name_table[0x400 + (adr & 0x03FF)];
+        data = ppu->name_table[0x400 + (adr & 0x03FF)];
       if (adr >= 0x0800 && adr <= 0x0BFF)
-        return ppu->name_table[0 + (adr & 0x03FF)];
+        data = ppu->name_table[0 + (adr & 0x03FF)];
       if (adr >= 0x0C00 && adr <= 0x0FFF)
-        return ppu->name_table[0x400 + (adr & 0x03FF)];
-    } else if (ppu->rom->mirror_type == MIRROR_HORIZONTAL) {
-      if (adr >= 0x0000 && adr <= 0x03FF)
-        return ppu->name_table[0 + (adr & 0x03FF)];
+        data = ppu->name_table[0x400 + (adr & 0x03FF)];
+    } else if (ppu->rom->mapper.mirror_mode(ppu->rom->mapper.state) ==
+               MIRROR_HORIZONTAL) {
+      if (adr <= 0x03FF)
+        data = ppu->name_table[0 + (adr & 0x03FF)];
       if (adr >= 0x0400 && adr <= 0x07FF)
-        return ppu->name_table[0 + (adr & 0x03FF)];
+        data = ppu->name_table[0 + (adr & 0x03FF)];
       if (adr >= 0x0800 && adr <= 0x0BFF)
-        return ppu->name_table[0x400 + (adr & 0x03FF)];
+        data = ppu->name_table[0x400 + (adr & 0x03FF)];
       if (adr >= 0x0C00 && adr <= 0x0FFF)
-        return ppu->name_table[0x400 + (adr & 0x03FF)];
+        data = ppu->name_table[0x400 + (adr & 0x03FF)];
     }
     // TODO rest mirroring modes
-    return 0;
   } else if (adr >= 0x3f00 && adr <= 0x3fff) { // palette
     adr &= 0x001f;
     // mirroring addresses
@@ -200,9 +218,11 @@ uint8_t PPU_read(PPU *ppu, uint16_t adr) {
       adr = 0x0008;
     if (adr == 0x001C)
       adr = 0x000C;
-    return ppu->palette_ram[adr]; //& (ppu->state.mask.grayscale ? 0x30 : 0x3F);
+    data = ppu->palette_ram[adr]; //& (ppu->state.mask.grayscale ? 0x30 : 0x3F);
+    // "shadow" read .... or not wtf
+    ppu->state.data_buf = ppu->palette_ram[adr];
   }
-  return 0;
+  return data;
 }
 
 void PPU_write(PPU *ppu, uint16_t adr, uint8_t data) {
@@ -215,8 +235,9 @@ void PPU_write(PPU *ppu, uint16_t adr, uint8_t data) {
     ppu->pattern_ram[adr] = data;
   } else if (adr >= 0x2000 && adr <= 0x3eff) { // name table
     adr &= 0x0FFF;
-    if (ppu->rom->mirror_type == MIRROR_VERTICAL) {
-      if (adr >= 0x0000 && adr <= 0x03FF)
+    if (ppu->rom->mapper.mirror_mode(ppu->rom->mapper.state) ==
+        MIRROR_VERTICAL) {
+      if (adr <= 0x03FF)
         ppu->name_table[0 + (adr & 0x03FF)] = data;
       if (adr >= 0x0400 && adr <= 0x07FF)
         ppu->name_table[0x400 + (adr & 0x03FF)] = data;
@@ -224,8 +245,9 @@ void PPU_write(PPU *ppu, uint16_t adr, uint8_t data) {
         ppu->name_table[0 + (adr & 0x03FF)] = data;
       if (adr >= 0x0C00 && adr <= 0x0FFF)
         ppu->name_table[0x400 + (adr & 0x03FF)] = data;
-    } else if (ppu->rom->mirror_type == MIRROR_HORIZONTAL) {
-      if (adr >= 0x0000 && adr <= 0x03FF)
+    } else if (ppu->rom->mapper.mirror_mode(ppu->rom->mapper.state) ==
+               MIRROR_HORIZONTAL) {
+      if (adr <= 0x03FF)
         ppu->name_table[0 + (adr & 0x03FF)] = data;
       if (adr >= 0x0400 && adr <= 0x07FF)
         ppu->name_table[0 + (adr & 0x03FF)] = data;
@@ -337,12 +359,11 @@ static inline void setup_shifters(PPU *ppu) {
   ppu->high_bg_shifter =
       (ppu->high_bg_shifter & 0xff00) | ppu->next_bg_tile_msb;
 
-  ppu->low_bg_shifter_attrib =
-      (ppu->low_bg_shifter_attrib & 0xFF00) |
-      ((ppu->next_bg_tile_attrib & 0b01) ? 0xFF : 0x00);
+  ppu->low_bg_shifter_attrib = (ppu->low_bg_shifter_attrib & 0xFF00) |
+                               ((ppu->next_bg_tile_attrib & 1) ? 0xFF : 0x00);
   ppu->high_bg_shifter_attrib =
       (ppu->high_bg_shifter_attrib & 0xFF00) |
-      ((ppu->next_bg_tile_attrib & 0b10) ? 0xFF : 0x00);
+      ((ppu->next_bg_tile_attrib & (1 << 1)) ? 0xFF : 0x00);
 }
 
 static inline void update_shifters(PPU *ppu) {
@@ -353,20 +374,52 @@ static inline void update_shifters(PPU *ppu) {
     ppu->high_bg_shifter_attrib <<= 1;
     ppu->low_bg_shifter_attrib <<= 1;
   }
+
+  if (ppu->state.mask.RENDER_SPRITES && ppu->cycle >= 1 && ppu->cycle < 258) {
+    for (int i = 0; i < ppu->sprite_count; i++) {
+      if (ppu->sprite_scan_line_OA[OAM_x(i)] > 0) {
+        ppu->sprite_scan_line_OA[OAM_x(i)]--;
+      } else {
+        ppu->sprite_pattern_low[i] <<= 1;
+        ppu->sprite_pattern_high[i] <<= 1;
+      }
+    }
+  }
+}
+
+static inline uint8_t reverse_byte(uint8_t b) {
+  b = (b & 0xF0) >> 4 | (b & 0x0F) << 4;
+  b = (b & 0xCC) >> 2 | (b & 0x33) << 2;
+  b = (b & 0xAA) >> 1 | (b & 0x55) << 1;
+  return b;
 }
 
 void PPU_tick(PPU *ppu) {
   // All but 1 of the secanlines is visible to the user. The pre-render
   // scanline at -1, is used to configure the "shifters" for the first visible
   // scanline, 0.
+
+  //###############################################################
+  //  BACKGROUND RENDERING
+  //###############################################################
   if (ppu->scan_line >= -1 && ppu->scan_line < 240) {
-    if (ppu->scan_line == 0 && ppu->cycle == 0) {
+    if (ppu->scan_line == 0 && ppu->cycle == 0 && ppu->odd_frame &&
+        (ppu->state.mask.RENDER_BACKGROUND || ppu->state.mask.RENDER_SPRITES)) {
       // "Odd Frame" cycle skip
       ppu->cycle = 1;
     }
     if (ppu->scan_line == -1 && ppu->cycle == 1) {
       // Effectively start of new frame, so clear vertical blank flag
       ppu->state.status.VERTICAL_BLANK = 0;
+      // Clear sprite overflow flag
+      ppu->state.status.SPRITE_OVERFLOW = 0;
+      // Clear the sprite zero hit flag
+      ppu->state.status.SPRITE_ZERO_HIT = 0;
+      // Clear Shifters
+      for (int i = 0; i < 8; i++) {
+        ppu->sprite_pattern_low[i] = 0;
+        ppu->sprite_pattern_high[i] = 0;
+      }
     }
     // ...
     if ((ppu->cycle >= 2 && ppu->cycle < 258) ||
@@ -421,7 +474,207 @@ void PPU_tick(PPU *ppu) {
     }
     if (ppu->scan_line == -1 && ppu->cycle >= 280 && ppu->cycle < 305)
       transfer_adr_y(ppu);
+
+    //###############################################################
+    // SPRITE RENDERING
+    //###############################################################
+    // TODO more accurate emulation...
+
+    if (ppu->cycle == 257 && ppu->scan_line >= 0) {
+      // We've reached the end of a visible scanline. It is now time to
+      // determine which sprites are visible on the next scanline, and preload
+      // this info into buffers that we can work with while the scanline scans
+      // the row.
+
+      // Firstly, clear out the sprite memory. This memory is used to store the
+      // sprites to be rendered. It is not the OAM.
+      memset(ppu->sprite_scan_line_OA, 0xFF, 8 * 4);
+
+      // The NES supports a maximum number of sprites per scanline. Nominally
+      // this is 8 or fewer sprites. This is why in some games you see sprites
+      // flicker or disappear when the scene gets busy.
+      ppu->sprite_count = 0;
+
+      // Secondly, clear out any residual information in sprite pattern shifters
+      for (uint8_t i = 0; i < 8; i++) {
+        ppu->sprite_pattern_low[i] = 0;
+        ppu->sprite_pattern_high[i] = 0;
+      }
+
+      // Thirdly, Evaluate which sprites are visible in the next scanline. We
+      // need to iterate through the OAM until we have found 8 sprites that have
+      // Y-positions and heights that are within vertical range of the next
+      // scanline. Once we have found 8 or exhausted the OAM we stop. Now,
+      // notice I count to 9 sprites. This is so I can set the sprite overflow
+      // flag in the event of there being > 8 sprites.
+      uint8_t OAM_entry = 0;
+
+      // New set of sprites. Sprite zero may not exist in the new set, so clear
+      // this flag.
+      ppu->sprite_0_hit_possible = 0;
+
+      while (OAM_entry < 64 && ppu->sprite_count < 9) {
+        // Note the conversion to signed numbers here
+        int16_t diff =
+            ((int16_t)ppu->scan_line - (int16_t)(ppu->OAM[OAM_y(OAM_entry)]));
+
+        // If the difference is positive then the scanline is at least at the
+        // same height as the sprite, so check if it resides in the sprite
+        // vertically depending on the current "sprite height mode" FLAGGED
+
+        if (diff >= 0 && diff < (ppu->state.control.SPRITE_SIZE ? 16 : 8) &&
+            ppu->sprite_count < 8) {
+          // Sprite is visible, so copy the attribute entry over to our
+          // scanline sprite cache. Ive added < 8 here to guard the array
+          // being written to.
+          if (ppu->sprite_count < 8) {
+            // Is this sprite sprite zero?
+            if (OAM_entry == 0) {
+              // It is, so its possible it may trigger a
+              // sprite zero hit when drawn
+              ppu->sprite_0_hit_possible = 1;
+            }
+
+            memcpy(&ppu->sprite_scan_line_OA[OAM_y(ppu->sprite_count)],
+                   &ppu->OAM[OAM_y(OAM_entry)], 4);
+          }
+          ppu->sprite_count++;
+        }
+        OAM_entry++;
+      } // End of sprite evaluation for next scanline
+
+      // Set sprite overflow flag
+      ppu->state.status.SPRITE_OVERFLOW = (ppu->sprite_count >= 8);
+
+      // Now we have an array of the 8 visible sprites for the next scanline. By
+      // the nature of this search, they are also ranked in priority, because
+      // those lower down in the OAM have the higher priority.
+
+      // We also guarantee that "Sprite Zero" will exist in
+      // ppu->sprite_scan_line_OA[0] if it is evaluated to be visible.
+    }
+
+    if (ppu->cycle == 340) {
+      // Now we're at the very end of the scanline, I'm going to prepare the
+      // sprite shifters with the 8 or less selected sprites.
+
+      for (uint8_t i = 0; i < ppu->sprite_count; i++) {
+        // We need to extract the 8-bit row patterns of the sprite with the
+        // correct vertical offset. The "Sprite Mode" also affects this as
+        // the sprites may be 8 or 16 rows high. Additionally, the sprite
+        // can be flipped both vertically and horizontally. So there's a lot
+        // going on here :P
+
+        uint8_t sprite_pattern_bits_lo, sprite_pattern_bits_hi;
+        uint16_t sprite_pattern_addr_lo, sprite_pattern_addr_hi;
+
+        // Determine the memory addresses that contain the byte of pattern data.
+        // We only need the lo pattern address, because the hi pattern address
+        // is always offset by 8 from the lo address.
+        if (!ppu->state.control.SPRITE_SIZE) {
+          // 8x8 Sprite Mode - The control register determines the pattern table
+          if (!(ppu->sprite_scan_line_OA[OAM_attrib(i)] & 0x80)) {
+            // Sprite is NOT flipped vertically, i.e. normal
+            sprite_pattern_addr_lo =
+                (ppu->state.control.PATTERN_SPRITE
+                 << 12) // Which Pattern Table? 0KB or 4KB offset
+                | (ppu->sprite_scan_line_OA[OAM_id(i)]
+                   << 4) // Which Cell? Tile ID * 16 (16 bytes per tile)
+                | (ppu->scan_line - ppu->sprite_scan_line_OA[OAM_y(
+                                        i)]); // Which Row in cell? (0->7)
+
+          } else {
+            // Sprite is flipped vertically, i.e. upside down
+            sprite_pattern_addr_lo =
+                (ppu->state.control.PATTERN_SPRITE
+                 << 12) // Which Pattern Table? 0KB or 4KB offset
+                | (ppu->sprite_scan_line_OA[OAM_id(i)]
+                   << 4) // Which Cell? Tile ID * 16 (16 bytes per tile)
+                | (7 - (ppu->scan_line - ppu->sprite_scan_line_OA[OAM_y(
+                                             i)])); // Which Row in cell? (7->0)
+          }
+
+        } else {
+          // 8x16 Sprite Mode - The sprite attribute determines the pattern
+          // table
+          if (!(ppu->sprite_scan_line_OA[OAM_attrib(i)] & 0x80)) {
+            // Sprite is NOT flipped vertically, i.e. normal
+            if (ppu->scan_line - ppu->sprite_scan_line_OA[OAM_y(i)] < 8) {
+              // Reading Top half Tile
+              sprite_pattern_addr_lo =
+                  ((ppu->sprite_scan_line_OA[OAM_id(i)] & 0x01)
+                   << 12) // Which Pattern Table? 0KB or 4KB offset
+                  | ((ppu->sprite_scan_line_OA[OAM_id(i)] & 0xFE)
+                     << 4) // Which Cell? Tile ID * 16 (16 bytes per tile)
+                  | ((ppu->scan_line - ppu->sprite_scan_line_OA[OAM_y(i)]) &
+                     0x07); // Which Row in cell? (0->7)
+            } else {
+              // Reading Bottom Half Tile
+              sprite_pattern_addr_lo =
+                  ((ppu->sprite_scan_line_OA[OAM_id(i)] & 0x01)
+                   << 12) // Which Pattern Table? 0KB or 4KB offset
+                  | (((ppu->sprite_scan_line_OA[OAM_id(i)] & 0xFE) + 1)
+                     << 4) // Which Cell? Tile ID * 16 (16 bytes per tile)
+                  | ((ppu->scan_line - ppu->sprite_scan_line_OA[OAM_y(i)]) &
+                     0x07); // Which Row in cell? (0->7)
+            }
+          } else {
+            // Sprite is flipped vertically, i.e. upside down
+            if (ppu->scan_line - ppu->sprite_scan_line_OA[OAM_y(i)] < 8) {
+              // Reading Top half Tile
+              sprite_pattern_addr_lo =
+                  ((ppu->sprite_scan_line_OA[OAM_id(i)] & 0x01)
+                   << 12) // Which Pattern Table? 0KB or 4KB offset
+                  | (((ppu->sprite_scan_line_OA[OAM_id(i)] & 0xFE) + 1)
+                     << 4) // Which Cell? Tile ID * 16 (16 bytes per tile)
+                  |
+                  ((7 - (ppu->scan_line - ppu->sprite_scan_line_OA[OAM_y(i)])) &
+                   0x07); // Which Row in cell? (0->7)
+            } else {
+              // Reading Bottom Half Tile
+              sprite_pattern_addr_lo =
+                  ((ppu->sprite_scan_line_OA[OAM_id(i)] & 0x01)
+                   << 12) // Which Pattern Table? 0KB or 4KB offset
+                  | ((ppu->sprite_scan_line_OA[OAM_id(i)] & 0xFE)
+                     << 4) // Which Cell? Tile ID * 16 (16 bytes per tile)
+                  |
+                  ((7 - (ppu->scan_line - ppu->sprite_scan_line_OA[OAM_y(i)])) &
+                   0x07); // Which Row in cell? (0->7)
+            }
+          }
+        }
+
+        // Phew... XD I'm absolutely certain you can use some fantastic bit
+        // manipulation to reduce all of that to a few one liners, but in this
+        // form it's easy to see the processes required for the different
+        // sizes and vertical orientations
+
+        // Hi bit plane equivalent is always offset by 8 bytes from lo bit plane
+        sprite_pattern_addr_hi = sprite_pattern_addr_lo + 8;
+
+        // Now we have the address of the sprite patterns, we can read them
+        sprite_pattern_bits_lo = PPU_read(ppu, sprite_pattern_addr_lo);
+        sprite_pattern_bits_hi = PPU_read(ppu, sprite_pattern_addr_hi);
+
+        // If the sprite is flipped horizontally, we need to flip the
+        // pattern bytes.
+        if (ppu->sprite_scan_line_OA[OAM_attrib(i)] & 0x40) {
+
+          // Flip Patterns Horizontally
+          sprite_pattern_bits_lo = reverse_byte(sprite_pattern_bits_lo);
+          sprite_pattern_bits_hi = reverse_byte(sprite_pattern_bits_hi);
+        }
+
+        // Finally! We can load the pattern into our sprite shift registers
+        // ready for rendering on the next scanline
+        ppu->sprite_pattern_low[i] = sprite_pattern_bits_lo;
+        ppu->sprite_pattern_high[i] = sprite_pattern_bits_hi;
+      }
+    }
   }
+
+  //###############################################################
+  //###############################################################
 
   if (ppu->scan_line >= 241 && ppu->scan_line < 261) {
     if (ppu->scan_line == 241 && ppu->cycle == 1) {
@@ -431,27 +684,141 @@ void PPU_tick(PPU *ppu) {
     }
   }
 
-  // do composition
+  //###############################################################
+  // DO COMPOSITION
+  //###############################################################
+
+  // BACKGROUND
   uint8_t bg_pix = 0;
   uint8_t bg_pal = 0;
   if (ppu->state.mask.RENDER_BACKGROUND) {
-    uint16_t scroll = 0x8000 >> ppu->state.x_scroll;
-    uint8_t p0 = (ppu->low_bg_shifter & scroll) > 0;
-    uint8_t p1 = (ppu->high_bg_shifter & scroll) > 0;
+    if (ppu->state.mask.RENDER_BACKGROUND_LEFT || (ppu->cycle >= 9)) {
+      uint16_t scroll = 0x8000 >> ppu->state.x_scroll;
+      uint8_t p0 = (ppu->low_bg_shifter & scroll) > 0;
+      uint8_t p1 = (ppu->high_bg_shifter & scroll) > 0;
 
-    bg_pix = (p1 << 1) | p0;
-    uint8_t pal0 = (ppu->low_bg_shifter_attrib & scroll) > 0;
-    uint8_t pal1 = (ppu->high_bg_shifter_attrib & scroll) > 0;
-    bg_pal = (pal1 << 1) | pal0;
-    if (ppu->cycle - 1 < 256 && ppu->scan_line < 240 && ppu->scan_line >= 0)
-      ppu->screen[(/*X*/ ppu->cycle - 1) + 256 * (/*Y*/ ppu->scan_line)] =
-          PPU_get_color_from_palette_ram(ppu, bg_pal, bg_pix);
+      bg_pix = (p1 << 1) | p0;
+      uint8_t pal0 = (ppu->low_bg_shifter_attrib & scroll) > 0;
+      uint8_t pal1 = (ppu->high_bg_shifter_attrib & scroll) > 0;
+      bg_pal = (pal1 << 1) | pal0;
+    }
   }
-  // if(bg_pal!=0||bg_pix!=0)printf("pal: %d pix: %d",bg_pal,bg_pix);
-  // set the pixel val to the screen
-  // printf("pix: %d pal: %d\n",bg_pix,bg_pal);
 
-  // advance counters
+  // SPRITES
+  uint8_t fg_pix = 0x00; // The 2-bit pixel to be rendered
+  uint8_t fg_pal = 0x00; // The 3-bit index of the palette the pixel indexes
+  uint8_t fg_priority = 0x00; // A bit of the sprite attribute indicates if its
+                              // more important than the background
+  if (ppu->state.mask.RENDER_SPRITES) {
+    // Iterate through all sprites for this scanline. This is to maintain
+    // sprite priority. As soon as we find a non transparent pixel of
+    // a sprite we can abort
+    if (ppu->state.mask.RENDER_SPRITES_LEFT || (ppu->cycle >= 9)) {
+
+      ppu->sprite_0_is_rendering = 0;
+
+      for (uint8_t i = 0; i < ppu->sprite_count; i++) {
+        // Scanline cycle has "collided" with sprite, shifters taking over
+        if (ppu->sprite_scan_line_OA[OAM_x(i)] == 0) {
+          // Note Fine X scrolling does not apply to sprites, the game
+          // should maintain their relationship with the background. So
+          // we'll just use the MSB of the shifter
+
+          // Determine the pixel value...
+          uint8_t fg_pix_lo = (ppu->sprite_pattern_low[i] & 0x80) > 0;
+          uint8_t fg_pix_hi = (ppu->sprite_pattern_high[i] & 0x80) > 0;
+          fg_pix = (fg_pix_hi << 1) | fg_pix_lo;
+
+          // Extract the palette from the bottom two bits. Recall
+          // that foreground palettes are the latter 4 in the
+          // palette memory.
+          fg_pal = (ppu->sprite_scan_line_OA[OAM_attrib(i)] & 0x03) + 0x04;
+          fg_priority = (ppu->sprite_scan_line_OA[OAM_attrib(i)] & 0x20) == 0;
+
+          // If pixel is not transparent, we render it, and dont
+          // bother checking the rest because the earlier sprites
+          // in the list are higher priority
+          if (fg_pix != 0) {
+            if (i == 0) // Is this sprite zero?
+            {
+              ppu->sprite_0_is_rendering = 1;
+            }
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  // Now we have a background pixel and a foreground pixel. They need
+  // to be combined. It is possible for sprites to go behind background
+  // tiles that are not "transparent", yet another neat trick of the PPU
+  // that adds complexity for us poor emulator developers...
+
+  uint8_t pixel = 0x00;   // The FINAL Pixel...
+  uint8_t palette = 0x00; // The FINAL Palette...
+
+  if (bg_pix == 0 && fg_pix == 0) {
+    // The background pixel is transparent
+    // The foreground pixel is transparent
+    // No winner, draw "background" colour
+    pixel = 0x00;
+    palette = 0x00;
+  } else if (bg_pix == 0 && fg_pix > 0) {
+    // The background pixel is transparent
+    // The foreground pixel is visible
+    // Foreground wins!
+    pixel = fg_pix;
+    palette = fg_pal;
+  } else if (bg_pix > 0 && fg_pix == 0) {
+    // The background pixel is visible
+    // The foreground pixel is transparent
+    // Background wins!
+    pixel = bg_pix;
+    palette = bg_pal;
+  } else if (bg_pix > 0 && fg_pix > 0) {
+    // The background pixel is visible
+    // The foreground pixel is visible
+    // Hmmm...
+    if (fg_priority) {
+      // Foreground cheats its way to victory!
+      pixel = fg_pix;
+      palette = fg_pal;
+    } else {
+      // Background is considered more important!
+      pixel = bg_pix;
+      palette = bg_pal;
+    }
+
+    // Sprite Zero Hit detection
+    if (ppu->sprite_0_hit_possible && ppu->sprite_0_is_rendering) {
+      // Sprite zero is a collision between foreground and background
+      // so they must both be enabled
+      if (ppu->state.mask.RENDER_BACKGROUND && ppu->state.mask.RENDER_SPRITES) {
+        // The left edge of the screen has specific switches to control
+        // its appearance. This is used to smooth inconsistencies when
+        // scrolling (since sprites x coord must be >= 0)
+        if (!(ppu->state.mask.RENDER_BACKGROUND_LEFT |
+              ppu->state.mask.RENDER_SPRITES_LEFT)) {
+          if (ppu->cycle >= 9 && ppu->cycle < 258) {
+            ppu->state.status.SPRITE_ZERO_HIT = 1;
+          }
+        } else {
+          if (ppu->cycle >= 1 && ppu->cycle < 258) {
+            ppu->state.status.SPRITE_ZERO_HIT = 1;
+          }
+        }
+      }
+    }
+  }
+
+  if (ppu->cycle - 1 < 256 && ppu->scan_line < 240 && ppu->scan_line >= 0)
+    ppu->screen[(/*X*/ ppu->cycle - 1) + 256 * (/*Y*/ ppu->scan_line)] =
+        PPU_get_color_from_palette_ram(ppu, palette, pixel);
+
+  //###############################################################
+  // UPDATE COUNTERS
+  //###############################################################
   ppu->cycle++;
   if (ppu->cycle >= 341) {
     ppu->cycle = 0;
@@ -459,6 +826,7 @@ void PPU_tick(PPU *ppu) {
     if (ppu->scan_line >= 261) {
       ppu->scan_line = -1;
       ppu->frame_complete = 1;
+      ppu->odd_frame = !ppu->odd_frame;
       ppu->frame_count++;
     }
   }

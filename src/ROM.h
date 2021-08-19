@@ -8,6 +8,7 @@
 
 #include "logger.h"
 #include "mappers.h"
+#include "common_types.h"
 
 #define NES_ROM_SIZE 0x1000
 
@@ -20,49 +21,6 @@
 
 #define NES20 20
 
-typedef enum {
-  PPU_2C02 = 0,
-  PPU_2C03 = 1,
-  PPU_2C04A = 2,
-  PPU_2C04B = 3,
-  PPU_2C04C = 4,
-  PPU_2C04D = 5,
-  PPU_2C05A = 6,
-  PPU_2C05B = 7,
-  PPU_2C05C = 8,
-  PPU_2C05D = 9,
-  PPU_2C05E = 10
-} NES_PPU_MODEL;
-
-typedef enum {
-  MIRROR_FOUR_SCREENS,
-  MIRROR_VERTICAL,
-  MIRROR_HORIZONTAL
-} NES_MIRRORING_TYPE;
-
-
-typedef enum {
-  NTSC,
-  PAL,
-  DENDY,
-  FAMICOM,
-  VS_SYSTEM,
-  PLAY_CHOISE,
-  FDS,
-  SYS_UNSPECIFIED
-} NES_SYSTEM_TYPE;
-
-typedef enum {
-  VS_DEFAULT,
-  RBIBASEBALL_PROTECTION,
-  TKOBOXING_PROTECTION,
-  SUPERXEVIOUS_PROTECTION,
-  ICECLIMBER_PROTECTION,
-  VS_DUAL_SYSTEM,
-  RAIDONBUNGELINGBAY_PROTECTION
-} NES_VS_SYSTEM_TYPE;
-
-
 #define GET_NES_SYS                                                            \
   switch (rom->data[12] & 0x03) {                                              \
   case 0: rom->system_type = NTSC; break;                                      \
@@ -71,58 +29,8 @@ typedef enum {
   case 3: rom->system_type = DENDY; break;                                     \
   }
 
-typedef enum {
-  INP_UNSPECIFIED,
-  STANDARDCONTROLLERS,
-  FOURSCORE,
-  FOURPLAYERADAPTER,
-  VSSYSTEM,
-  VSSYSTEMSWAPPED,
-  VSSYSTEMSWAPAB,
-  VSZAPPER,
-  ZAPPER,
-  TWOZAPPERS,
-  BANDAIHYPERSHOT,
-  POWERPADSIDEA,
-  POWERPADSIDEB,
-  FAMILYTRAINERSIDEA,
-  FAMILYTRAINERSIDEB,
-  ARKANOIDCONTROLLERNES,
-  ARKANOIDCONTROLLERFAMICOM,
-  DOUBLEARKANOIDCONTROLLER,
-  KONAMIHYPERSHOT,
-  PACHINKOCONTROLLER,
-  EXCITINGBOXING,
-  JISSENMAHJONG,
-  PARTYTAP,
-  OEKAKIDSTABLET,
-  BARCODEBATTLER,
-  MIRACLEPIANO,
-  POKKUNMOGURAA,
-  TOPRIDER,
-  DOUBLEFISTED,
-  FAMICOM3DSYSTEM,
-  DOREMIKKOKEYBOARD,
-  ROB,
-  FAMICOMDATARECORDER,
-  TURBOFILE,
-  BATTLEBOX,
-  FAMILYBASICKEYBOARD,
-  PEC586KEYBOARD,
-  BIT79KEYBOARD,
-  SUBORKEYBOARD,
-  SUBORKEYBOARDMOUSE1,
-  SUBORKEYBOARDMOUSE2,
-  SNESMOUSE,
-  GENERICMULTICART,
-  SNESCONTROLLERS,
-  RACERMATEBICYCLE,
-  UFORCE,
-  LASTENTRY
-} NES_INPUT_TYPE;
-
 const char *NES_PPU_MODEL_STR[11];
-const char *NES_MIRRORING_TYPE_STR[3];
+const char *NES_MIRRORING_TYPE_STR[5];
 const char *NES_SYSTEM_TYPE_STR[8];
 const char *NES_VS_SYSTEM_TYPE_STR[7];
 const char *NES_INPUT_TYPE_STR[47];
@@ -159,8 +67,6 @@ typedef struct {
 } NES_ROM;
 
 void ROM_load_from_disc(char *file_name, NES_ROM *rom);
-uint8_t *ROM_get_CHR_p(NES_ROM *rom);
-uint8_t *ROM_get_PRG_p(NES_ROM *rom);
 uint8_t ROM_cpu_read(NES_ROM *rom, uint16_t adr, uint8_t *data_out);
 uint8_t ROM_cpu_write(NES_ROM *rom, uint16_t adr, uint8_t data);
 uint8_t ROM_ppu_read(NES_ROM *rom, uint16_t adr, uint8_t *data_out);

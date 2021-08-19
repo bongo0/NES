@@ -497,7 +497,7 @@ static struct nk_rect b;
   for (size_t i = 0; i < CPU_RAM_SIZE; ++i) {
     uint32_t color = def_color;
     if(i>=0x100&&i<=0x1ff)color=stack_color;
-    if(i==0x100+nes->cpu.state.SP)color=SP_color;
+    if(i==(size_t)(0x100+nes->cpu.state.SP) )color=SP_color;
     tmp = nk_widget_bounds(ctx);
     if (GUI_color_txt_button(gctx,color, &mem_hex[i * 2],NK_TEXT_ALIGN_CENTERED)) {
       edit = i;
