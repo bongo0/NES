@@ -26,15 +26,21 @@ CPU_6502 *CPU_init(CPU_6502 *cpu, NES_BUS *bus) {
   cpu->state.cycles_accumulated = 0;
 
   cpu->bus = bus;
+
+  // hardcoded address where to read the PC and continue exec after reset
+  uint8_t low = CPU_read_memory(cpu, CPU_RESET_VECTOR);
+  uint8_t high = CPU_read_memory(cpu, CPU_RESET_VECTOR + 1);
+  cpu->state.PC = low | (high << 8);
   return cpu;
 }
 
 void CPU_reset(CPU_6502 *cpu) {
-  cpu->state.A = 0;
-  cpu->state.X = 0;
-  cpu->state.Y = 0;
-  cpu->state.SP = 0xFD;
-  cpu->state.P = 0 | CPU_STATUS_RESERVED;
+  // un changed on reset
+  //cpu->state.A = 0;
+  //cpu->state.X = 0;
+  //cpu->state.Y = 0;
+  cpu->state.SP -=3;
+  cpu->state.P |= CPU_STATUS_INTERUPT_DISABLE;
 
   cpu->state.operand = 0;
   cpu->state.page_cross = 0;
@@ -210,7 +216,7 @@ uint8_t CPU_stack_pop(CPU_6502 *cpu) {
   return CPU_read_memory(cpu, STACK_LOCATION + cpu->state.SP);
 }
 
-// does not change the state
+// does not change PC
 uint8_t CPU_get_op(CPU_6502 *CPU) {
   return CPU_read_memory(CPU, CPU->state.PC);
 }
@@ -219,6 +225,7 @@ void CPU_tick(CPU_6502 *cpu) {
   if (cpu->state.cycle_count == 0) {
     cpu->previous_state = cpu->state;
     cpu->state.page_cross = 0;
+    cpu->state.branch_taken = 0;
 
 #ifdef NESTEST_LOG_COMP
     uint16_t last_PC = cpu->state.PC; // for debugging
@@ -228,7 +235,8 @@ void CPU_tick(CPU_6502 *cpu) {
     cpu->state.last_op=op;// for debugging
     cpu->state.operand = CPU_get_operand(cpu);
     cpu->state.PC++;
-    CPU_exec_instruction(cpu, op);
+    //CPU_exec_instruction(cpu, op);
+    CPU_op_table[op](cpu, CPU_addr_mode_table[op]);
 
     // cycles
     CPU_op_cycles_t ct = CPU_op_cycles_table[op];
@@ -249,11 +257,7 @@ void CPU_tick(CPU_6502 *cpu) {
 }
 
 inline void CPU_exec_instruction(CPU_6502 *cpu, uint8_t op_code) {
-  cpu->state.branch_taken = 0;
-  CPU_op_table[op_code](cpu, CPU_addr_mode_table[op_code]);
-
-  // printf("0x%02x == %s  mode: ", op_code, tmp);
-  // printf("\n");
+    CPU_op_table[op_code](cpu, CPU_addr_mode_table[op_code]);
 }
 
 //#v	Immediate	Uses the 8-bit operand itself as the value for the
@@ -438,7 +442,7 @@ void CPU_branch_relative(CPU_6502 *cpu, uint8_t b) {
     // +1 cycle on branches taken
     cpu->state.branch_taken = 1;
     // TODO irq stuff
-
+    //if(cpu->state.need_nmi && !cpu->state.last_need_nmi)cpu->state.need_nmi=0;
     // page cross ...
     cpu->state.page_cross = is_page_crossed_signed(cpu->state.PC, jmp_offset);
 
@@ -833,6 +837,8 @@ void *RTS(CPU_6502 *cpu, CPU_addr_mode mode) {
   uint8_t high = CPU_stack_pop(cpu);
   uint16_t adr = low | (high << 8);
 
+  CPU_get_op(cpu);//Dummy read
+
   cpu->state.PC = adr + 1;
   return "RTS";
 }
@@ -845,6 +851,8 @@ void *RTI(CPU_6502 *cpu, CPU_addr_mode mode) {
   uint8_t low = CPU_stack_pop(cpu);
   uint8_t high = CPU_stack_pop(cpu);
   uint16_t adr = low | (high << 8);
+
+  CPU_get_op(cpu);//Dummy read
 
   cpu->state.PC = adr;
   return "RTI";
@@ -1008,7 +1016,7 @@ void *ISB(CPU_6502 *cpu, CPU_addr_mode mode) {
 
 void *AAC(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_set_register(cpu, &cpu->state.A,
-                   cpu->state.A & CPU_read_memory(cpu, cpu->state.operand));
+                   cpu->state.A &  CPU_get_operand_val(cpu,mode) );
   CPU_clear_status_flags(cpu, CPU_STATUS_CARRY);
   if (CPU_get_status_flag(cpu, CPU_STATUS_NEGATIVE))
     CPU_set_status_flags(cpu, CPU_STATUS_CARRY);
@@ -1018,7 +1026,7 @@ void *AAC(CPU_6502 *cpu, CPU_addr_mode mode) {
 void *ASR(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_clear_status_flags(cpu, CPU_STATUS_CARRY);
   CPU_set_register(cpu, &cpu->state.A,
-                   cpu->state.A & CPU_read_memory(cpu, cpu->state.operand));
+                   cpu->state.A & CPU_get_operand_val(cpu,mode) );
   if (cpu->state.A & 1)
     CPU_set_status_flags(cpu, CPU_STATUS_CARRY);
   CPU_set_register(cpu, &cpu->state.A, cpu->state.A >> 1);
@@ -1029,7 +1037,7 @@ void *ARR(CPU_6502 *cpu, CPU_addr_mode mode) {
 
   CPU_set_register(
       cpu, &cpu->state.A,
-      ((cpu->state.A & CPU_read_memory(cpu, cpu->state.operand)) >> 1) |
+      ((cpu->state.A & CPU_get_operand_val(cpu,mode)) >> 1) |
           (CPU_get_status_flag(cpu, CPU_STATUS_CARRY) ? 0x80 : 0));
 
   CPU_clear_status_flags(cpu, CPU_STATUS_CARRY | CPU_STATUS_OVERFLOW);
@@ -1042,7 +1050,7 @@ void *ARR(CPU_6502 *cpu, CPU_addr_mode mode) {
 }
 
 void *ATX(CPU_6502 *cpu, CPU_addr_mode mode) {
-  uint8_t val = CPU_read_memory(cpu, cpu->state.operand);
+  uint8_t val = CPU_get_operand_val(cpu,mode);//CPU_read_memory(cpu, cpu->state.operand);
   CPU_set_register(cpu, &cpu->state.A, val);
   CPU_set_register(cpu, &cpu->state.X, cpu->state.A);
   CPU_set_register(cpu, &cpu->state.A, cpu->state.A);
@@ -1051,7 +1059,7 @@ void *ATX(CPU_6502 *cpu, CPU_addr_mode mode) {
 }
 
 void *AXS(CPU_6502 *cpu, CPU_addr_mode mode) {
-  uint8_t val = CPU_read_memory(cpu, cpu->state.operand);
+  uint8_t val = CPU_get_operand_val(cpu,mode);//CPU_read_memory(cpu, cpu->state.operand);
   uint8_t ax = (cpu->state.A & cpu->state.X) - val;
 
   CPU_clear_status_flags(cpu, CPU_STATUS_CARRY);
@@ -1293,6 +1301,7 @@ void *BRK(CPU_6502 *cpu, CPU_addr_mode mode) {
     cpu->state.PC = low | (high << 8);
   }
 
+  CPU_read_memory(cpu, cpu->state.PC+1);// Dummy read -- Maybe not here??
   cpu->state.last_need_nmi = 0; // weird stuff ??
   return "BRK";
 }
@@ -1342,23 +1351,62 @@ CPU_addr_mode CPU_addr_mode_table[] ={
 CPU_op_cycles_t CPU_op_cycles_table[] ={
 //   0,      1,      2,      3,      4,      5,      6,      7,      8,      9,      A,      B,      C,      D,      E,      F
 /*0*/{7,0},  {6,0},  {0,0},  {8,0},  {3,0},  {3,0},  {5,0},  {5,0},  {3,0},  {2,0},  {2,0},  {2,0},  {4,0},  {4,0},  {6,0},  {6,0}, //0
-/*1*/{2,1},  {5,1},  {0,0},  {8,0},  {4,0},  {4,0},  {6,0},  {6,0},  {2,0},  {4,1},  {2,0},  {7,0},  {4,1},  {4,1},  {7,0},  {7,0}, //1
+/*1*/{0,0},  {5,1},  {0,0},  {8,0},  {4,0},  {4,0},  {6,0},  {6,0},  {2,0},  {4,1},  {2,0},  {7,0},  {4,1},  {4,1},  {7,0},  {7,0}, //1
 /*2*/{6,0},  {6,0},  {0,0},  {8,0},  {3,0},  {3,0},  {5,0},  {5,0},  {4,0},  {2,0},  {2,0},  {2,0},  {4,0},  {4,0},  {6,0},  {6,0}, //2
-/*3*/{2,1},  {5,1},  {0,0},  {8,0},  {4,0},  {4,0},  {6,0},  {6,0},  {2,0},  {4,1},  {2,0},  {7,0},  {4,1},  {4,1},  {7,0},  {7,0}, //3
+/*3*/{0,0},  {5,1},  {0,0},  {8,0},  {4,0},  {4,0},  {6,0},  {6,0},  {2,0},  {4,1},  {2,0},  {7,0},  {4,1},  {4,1},  {7,0},  {7,0}, //3
 /*4*/{6,0},  {6,0},  {0,0},  {8,0},  {3,0},  {3,0},  {5,0},  {5,0},  {3,0},  {2,0},  {2,0},  {2,0},  {3,0},  {4,0},  {6,0},  {6,0}, //4
-/*5*/{2,1},  {5,1},  {0,0},  {8,0},  {4,0},  {4,0},  {6,0},  {6,0},  {2,0},  {4,1},  {2,0},  {7,0},  {4,1},  {4,1},  {7,0},  {7,0}, //5
+/*5*/{0,0},  {5,1},  {0,0},  {8,0},  {4,0},  {4,0},  {6,0},  {6,0},  {2,0},  {4,1},  {2,0},  {7,0},  {4,1},  {4,1},  {7,0},  {7,0}, //5
 /*6*/{6,0},  {6,0},  {0,0},  {8,0},  {3,0},  {3,0},  {5,0},  {5,0},  {4,0},  {2,0},  {2,0},  {2,0},  {5,0},  {4,0},  {6,0},  {6,0}, //6
-/*7*/{2,1},  {5,1},  {0,0},  {8,0},  {4,0},  {4,0},  {6,0},  {6,0},  {2,0},  {4,1},  {2,0},  {7,0},  {4,1},  {4,1},  {7,0},  {7,0}, //7
+/*7*/{0,0},  {5,1},  {0,0},  {8,0},  {4,0},  {4,0},  {6,0},  {6,0},  {2,0},  {4,1},  {2,0},  {7,0},  {4,1},  {4,1},  {7,0},  {7,0}, //7
 /*8*/{2,0},  {6,0},  {2,0},  {6,0},  {3,0},  {3,0},  {3,0},  {3,0},  {2,0},  {2,0},  {2,0},  {2,0},  {4,0},  {4,0},  {4,0},  {4,0}, //8
-/*9*/{2,1},  {6,0},  {0,0},  {6,0},  {4,0},  {4,0},  {4,0},  {4,0},  {2,0},  {5,0},  {2,0},  {5,0},  {5,0},  {5,0},  {5,0},  {5,0}, //9
+/*9*/{0,0},  {6,0},  {0,0},  {6,0},  {4,0},  {4,0},  {4,0},  {4,0},  {2,0},  {5,0},  {2,0},  {5,0},  {5,0},  {5,0},  {5,0},  {5,0}, //9
 /*A*/{2,0},  {6,0},  {2,0},  {6,0},  {3,0},  {3,0},  {3,0},  {3,0},  {2,0},  {2,0},  {2,0},  {2,0},  {4,0},  {4,0},  {4,0},  {4,0}, //A
-/*B*/{2,1},  {5,1},  {0,0},  {5,1},  {4,0},  {4,0},  {4,0},  {4,0},  {2,0},  {4,1},  {2,0},  {4,1},  {4,1},  {4,1},  {4,1},  {4,1}, //B
+/*B*/{0,0},  {5,1},  {0,0},  {5,1},  {4,0},  {4,0},  {4,0},  {4,0},  {2,0},  {4,1},  {2,0},  {4,1},  {4,1},  {4,1},  {4,1},  {4,1}, //B
 /*C*/{2,0},  {6,0},  {2,0},  {8,0},  {3,0},  {3,0},  {5,0},  {5,0},  {2,0},  {2,0},  {2,0},  {2,0},  {4,0},  {4,0},  {6,0},  {6,0}, //C
-/*D*/{2,1},  {5,1},  {0,0},  {8,0},  {4,0},  {4,0},  {6,0},  {6,0},  {2,0},  {4,1},  {2,0},  {7,0},  {4,1},  {4,1},  {7,0},  {7,0}, //D
+/*D*/{0,0},  {5,1},  {0,0},  {8,0},  {4,0},  {4,0},  {6,0},  {6,0},  {2,0},  {4,1},  {2,0},  {7,0},  {4,1},  {4,1},  {7,0},  {7,0}, //D
 /*E*/{2,0},  {6,0},  {2,0},  {8,0},  {3,0},  {3,0},  {5,0},  {5,0},  {2,0},  {2,0},  {2,0},  {2,0},  {4,0},  {4,0},  {6,0},  {6,0}, //E
-/*F*/{2,1},  {5,1},  {0,0},  {8,0},  {4,0},  {4,0},  {6,0},  {6,0},  {2,0},  {4,1},  {2,0},  {7,0},  {4,1},  {4,1},  {7,0},  {7,0}  //F
+/*F*/{0,0},  {5,1},  {0,0},  {8,0},  {4,0},  {4,0},  {6,0},  {6,0},  {2,0},  {4,1},  {2,0},  {7,0},  {4,1},  {4,1},  {7,0},  {7,0}  //F
 };
-
+/*
+No page crossing:                    Page crossing:
+	 0 1 2 3 4 5 6 7 8 9 A B C D E F      0 1 2 3 4 5 6 7 8 9 A B C D E F
+	 --------------------------------    -------------------------------
+0| 7,6,0,8,3,3,5,5,3,2,2,2,4,4,6,6   |0|7,6,0,8,3,3,5,5,3,2,2,2,4,4,6,6
+1| 0,5,0,8,4,4,6,6,2,4,2,7,4,4,7,7   |1|0,6,0,8,4,4,6,6,2,5,2,7,5,5,7,7
+2| 6,6,0,8,3,3,5,5,4,2,2,2,4,4,6,6   |2|6,6,0,8,3,3,5,5,4,2,2,2,4,4,6,6
+3| 0,5,0,8,4,4,6,6,2,4,2,7,4,4,7,7   |3|0,6,0,8,4,4,6,6,2,5,2,7,5,5,7,7
+4| 6,6,0,8,3,3,5,5,3,2,2,2,3,4,6,6   |4|6,6,0,8,3,3,5,5,3,2,2,2,3,4,6,6
+5| 0,5,0,8,4,4,6,6,2,4,2,7,4,4,7,7   |5|0,6,0,8,4,4,6,6,2,5,2,7,5,5,7,7
+6| 6,6,0,8,3,3,5,5,4,2,2,2,5,4,6,6   |6|6,6,0,8,3,3,5,5,4,2,2,2,5,4,6,6
+7| 0,5,0,8,4,4,6,6,2,4,2,7,4,4,7,7   |7|0,6,0,8,4,4,6,6,2,5,2,7,5,5,7,7
+8| 2,6,2,6,3,3,3,3,2,2,2,2,4,4,4,4   |8|2,6,2,6,3,3,3,3,2,2,2,2,4,4,4,4
+9| 0,6,0,6,4,4,4,4,2,5,2,5,5,5,5,5   |9|0,6,0,6,4,4,4,4,2,5,2,5,5,5,5,5
+A| 2,6,2,6,3,3,3,3,2,2,2,2,4,4,4,4   |A|2,6,2,6,3,3,3,3,2,2,2,2,4,4,4,4
+B| 0,5,0,5,4,4,4,4,2,4,2,4,4,4,4,4   |B|0,6,0,6,4,4,4,4,2,5,2,5,5,5,5,5
+C| 2,6,2,8,3,3,5,5,2,2,2,2,4,4,6,6   |C|2,6,2,8,3,3,5,5,2,2,2,2,4,4,6,6
+D| 0,5,0,8,4,4,6,6,2,4,2,7,4,4,7,7   |D|0,6,0,8,4,4,6,6,2,5,2,7,5,5,7,7
+E| 2,6,2,8,3,3,5,5,2,2,2,2,4,4,6,6   |E|2,6,2,8,3,3,5,5,2,2,2,2,4,4,6,6
+F| 0,5,0,8,4,4,6,6,2,4,2,7,4,4,7,7   |F|0,6,0,8,4,4,6,6,2,5,2,7,5,5,7,7
+                    page cross - no cross:
+                    0 1 2 3 4 5 6 7 8 9 A B C D E F 
+                    --------------------------------
+                0|  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                1|  0,1,0,0,0,0,0,0,0,1,0,0,1,1,0,0,
+                2|  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                3|  0,1,0,0,0,0,0,0,0,1,0,0,1,1,0,0,
+                4|  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                5|  0,1,0,0,0,0,0,0,0,1,0,0,1,1,0,0,
+                6|  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                7|  0,1,0,0,0,0,0,0,0,1,0,0,1,1,0,0,
+                8|  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                9|  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                A|  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                B|  0,1,0,1,0,0,0,0,0,1,0,1,1,1,1,1,
+                C|  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                D|  0,1,0,0,0,0,0,0,0,1,0,0,1,1,0,0,
+                E|  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                F|  0,1,0,0,0,0,0,0,0,1,0,0,1,1,0,0,
+*/
 
 char* CPU_op_names[] = {
 //      0       1            2       3       4       5            6               7       8       9            A            B       C            D            E               F
