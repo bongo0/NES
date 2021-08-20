@@ -1,3 +1,4 @@
+#define NESTEST_LOG_COMP
 #include "../src/BUS.h"
 #include "../src/CPU_6502.h"
 #include <stdio.h>
@@ -14,16 +15,16 @@ Test(cpu_instruction_test, nestest_log) {
 
   NES_BUS nes;
   NES_ROM rom;
-  nes.rom = &rom;
+  ROM_load_from_disc("test/nestest.nes", &rom);
   
-  CPU_init(&nes.cpu,&nes);
-  ROM_load_from_disc("test/nestest.nes", nes.rom);
+  BUS_init(&nes,&rom);
+  
 
   // setup state to run all the tests in the rom
   nes.cpu.state.PC=0xc000;
   nes.cpu.state.P=0x24;
   nes.cpu.state.cycles_accumulated+=7;
-
+printf("hello prkl\n");
   for (int i = 0; i < 26553; ++i){ // takes 26553 cycles
      CPU_tick(&nes.cpu);
   }

@@ -69,6 +69,7 @@ typedef struct {
   uint8_t raw_operand_zp; // for nestest.log testing
 //#endif
   uint64_t cycles_accumulated;
+  uint8_t op;
   uint8_t last_op;
 
   uint8_t need_nmi;

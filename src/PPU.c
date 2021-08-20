@@ -676,13 +676,13 @@ void PPU_tick(PPU *ppu) {
   //###############################################################
   //###############################################################
 
-  if (ppu->scan_line >= 241 && ppu->scan_line < 261) {
-    if (ppu->scan_line == 241 && ppu->cycle == 1) {
+  //if (ppu->scan_line >= NMI_SCAN_LINE && ppu->scan_line < 261) {
+    if (ppu->scan_line == NMI_SCAN_LINE && ppu->cycle == 1) {
       ppu->state.status.VERTICAL_BLANK = 1;
       if (ppu->state.control.ENABLE_NMI)
         ppu->state.nmi = 1;
     }
-  }
+  //}
 
   //###############################################################
   // DO COMPOSITION
@@ -823,7 +823,7 @@ void PPU_tick(PPU *ppu) {
   if (ppu->cycle >= 341) {
     ppu->cycle = 0;
     ppu->scan_line++;
-    if (ppu->scan_line >= 261) {
+    if (ppu->scan_line >= VBLANK_END+1) {
       ppu->scan_line = -1;
       ppu->frame_complete = 1;
       ppu->odd_frame = !ppu->odd_frame;
