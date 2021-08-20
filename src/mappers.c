@@ -53,7 +53,7 @@ uint8_t Mapper000_ppu_write(void *mapper_state, uint16_t adr,
   }
   return MAP_FALSE;
 }
-NES_MIRRORING_TYPE Mapper000_mirror(void *mapper_state){
+NES_MIRRORING_TYPE Mapper000_mirror(void *mapper_state) {
   Mapper000 *state = (Mapper000 *)mapper_state;
   return state->mirror_mode;
 }
@@ -68,7 +68,7 @@ uint8_t Mapper001_cpu_read(void *mapper_state, uint16_t adr,
   if (adr >= 0x6000 && adr <= 0x7fff) {
     // reading from ROMs RAM
     (*data) = state->RAM[adr & 0x1fff];
-    return MAP_TRUE | MAP_RAM;
+    return (MAP_TRUE | MAP_RAM);
   }
 
   if (adr >= 0x8000) {
@@ -216,22 +216,19 @@ uint8_t Mapper001_ppu_write(void *mapper_state, uint16_t adr,
                             uint16_t *mapped_adr, uint8_t *data) {
   Mapper001 *state = (Mapper001 *)mapper_state;
 
-if (adr < 0x2000)
-	{
-		if (state->CHR_size == 0)
-		{
-			(*mapped_adr) = adr;
-			return MAP_TRUE;
-		}
+  if (adr < 0x2000) {
+    if (state->CHR_size == 0) {
+      (*mapped_adr) = adr;
+      return MAP_TRUE;
+    }
 
-		return MAP_TRUE;
-	}
-
+    return MAP_TRUE;
+  }
 
   return MAP_FALSE;
 }
 
-NES_MIRRORING_TYPE Mapper001_mirror(void *mapper_state){
+NES_MIRRORING_TYPE Mapper001_mirror(void *mapper_state) {
   Mapper001 *state = (Mapper001 *)mapper_state;
   return state->mirror_mode;
 }
@@ -249,4 +246,67 @@ void Mapper001_reset(void *mapper_state) {
   state->PRG_bank_select32 = 0;
   state->PRG_bank_select16low = 0;
   state->PRG_bank_select16high = state->PRG_size / PRG_BANK_SIZE - 1;
+}
+
+// ########################################################
+//    MAPPER 002
+// ########################################################
+uint8_t Mapper002_cpu_read(void *mapper_state, uint16_t adr,
+                           uint16_t *mapped_adr, uint8_t *data) {
+  Mapper002 *state = (Mapper002 *)mapper_state;
+  if (adr >= 0x8000 && adr <= 0xBFFF) {
+    (*mapped_adr) = state->PRG_bank_select_low * 0x4000 + (adr & 0x3FFF);
+    return MAP_TRUE;
+  }
+
+  if (adr >= 0xC000) {
+    (*mapped_adr) = state->PRG_bank_select_high * 0x4000 + (adr & 0x3FFF);
+    return MAP_TRUE;
+  }
+
+  return MAP_FALSE;
+}
+
+uint8_t Mapper002_cpu_write(void *mapper_state, uint16_t adr,
+                            uint16_t *mapped_adr, uint8_t *data) {
+  Mapper002 *state = (Mapper002 *)mapper_state;
+  if (adr >= 0x8000) {
+    state->PRG_bank_select_low = (*data) & 0x0F;
+  }
+
+  // Mapper has handled write, but do not update ROMs
+  return MAP_FALSE;
+}
+
+uint8_t Mapper002_ppu_read(void *mapper_state, uint16_t adr,
+                           uint16_t *mapped_adr, uint8_t *data) {
+  //Mapper002 *state = (Mapper002 *)mapper_state;
+  if (adr < 0x2000) {
+    (*mapped_adr) = adr;
+    return MAP_TRUE;
+  } else
+    return MAP_FALSE;
+}
+
+uint8_t Mapper002_ppu_write(void *mapper_state, uint16_t adr,
+                            uint16_t *mapped_adr, uint8_t *data) {
+  Mapper002 *state = (Mapper002 *)mapper_state;
+  if (adr < 0x2000) {
+    if (state->CHR_size == 0) {
+      (*mapped_adr) = adr;
+      return MAP_TRUE;
+    }
+  }
+  return MAP_FALSE;
+}
+
+NES_MIRRORING_TYPE Mapper002_mirror(void *mapper_state) {
+  Mapper002 *state = (Mapper002 *)mapper_state;
+  return state->mirror_mode;
+}
+
+void Mapper002_reset(void *mapper_state) {
+  Mapper002 *state = (Mapper002 *)mapper_state;
+  state->PRG_bank_select_low = 0;
+  state->PRG_bank_select_high = state->PRG_size/PRG_BANK_SIZE-1;
 }

@@ -77,7 +77,23 @@ NES_MIRRORING_TYPE Mapper001_mirror(void *mapper_state);
 void Mapper001_reset(void *mapper_state);
 
 //#####################################
-// Mapper ---
+// Mapper 002
 //#####################################
+typedef struct {
+  // mapper state
+  uint8_t PRG_bank_select_low;
+	uint8_t PRG_bank_select_high;
+
+  size_t PRG_size;
+  size_t CHR_size;
+  NES_MIRRORING_TYPE mirror_mode;
+} Mapper002;
+
+uint8_t Mapper002_cpu_read(void *mapper_state, uint16_t adr, uint16_t *mapped_adr,uint8_t *data);
+uint8_t Mapper002_cpu_write(void *mapper_state, uint16_t adr, uint16_t *mapped_adr,uint8_t *data);
+uint8_t Mapper002_ppu_read(void *mapper_state, uint16_t adr, uint16_t *mapped_adr,uint8_t *data);
+uint8_t Mapper002_ppu_write(void *mapper_state, uint16_t adr, uint16_t *mapped_adr,uint8_t *data);
+NES_MIRRORING_TYPE Mapper002_mirror(void *mapper_state);
+void Mapper002_reset(void *mapper_state);
 
 #endif // MAPPERS_H
