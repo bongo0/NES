@@ -22,6 +22,7 @@ CPU_6502 *CPU_init(CPU_6502 *cpu, NES_BUS *bus) {
 
   cpu->state.cycle_count = 0;
   cpu->state.page_cross = 0;
+  cpu->state.branch_taken = 0;
   cpu->state.operand = 0;
   cpu->state.cycles_accumulated = 0;
 
@@ -44,6 +45,7 @@ void CPU_reset(CPU_6502 *cpu) {
 
   cpu->state.operand = 0;
   cpu->state.page_cross = 0;
+  cpu->state.branch_taken = 0;
 
   // hardcoded address where to read the PC and continue exec after reset
   uint8_t low = CPU_read_memory(cpu, CPU_RESET_VECTOR);
@@ -240,16 +242,17 @@ void CPU_tick(CPU_6502 *cpu) {
 
     // cycles
     CPU_op_cycles_t ct = CPU_op_cycles_table[op];
-    cpu->state.cycle_count += ct.cycles;
+    cpu->state.cycle_count += (ct.cycles);
+    //if( (CPU_addr_mode_table[op]==IMPLICIT) &&  cpu->state.cycle_count>0)cpu->state.cycle_count--;
     if (ct.cross && cpu->state.page_cross)
       cpu->state.cycle_count++;
     if (cpu->state.branch_taken)
       cpu->state.cycle_count++;
-
+//if(op==0x00)printf("%d cycle count %ld   öö branch %d cross %d\n",CPU_addr_mode_table[op],cpu->state.cycle_count, cpu->state.branch_taken,ct.cross);
 #ifdef NESTEST_LOG_COMP
     CPU_log_state_simple(cpu, mycpu_log, last_PC, op);
 #endif
-    cpu->state.cycles_accumulated++;
+    //cpu->state.cycles_accumulated++;
   }else{
     cpu->state.cycles_accumulated++;
     cpu->state.cycle_count--;

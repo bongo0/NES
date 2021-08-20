@@ -83,6 +83,11 @@ typedef struct {
   uint8_t x;         // X position of sprite
 } Sprite_OA; */
 
+#define NMI_SCAN_LINE  241;
+#define VBLANK_END  260;
+#define STANDARDNMISCANLINE = 241;
+#define MASTER_CLOCK_DIVIDER = 4;
+
 typedef struct {
   PPU_state state;
 

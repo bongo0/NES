@@ -220,7 +220,7 @@ uint8_t PPU_read(PPU *ppu, uint16_t adr) {
       adr = 0x000C;
     data = ppu->palette_ram[adr]; //& (ppu->state.mask.grayscale ? 0x30 : 0x3F);
     // "shadow" read .... or not wtf
-    ppu->state.data_buf = ppu->palette_ram[adr];
+    //ppu->state.data_buf = ppu->palette_ram[adr];
   }
   return data;
 }
