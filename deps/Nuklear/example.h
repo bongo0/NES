@@ -35,7 +35,7 @@ int overview(struct nk_context *ctx) {
   if (minimizable)
     window_flags |= NK_WINDOW_MINIMIZABLE;
 
-  if (nk_begin(ctx, "Overview", nk_rect(10, 10, 400, 600), window_flags)) {
+  if (nk_begin(ctx, "Overview", nk_rect(600, 600, 400, 600), window_flags)) {
     if (show_menu) {
       /* menubar */
       enum menu_states { MENU_DEFAULT, MENU_WINDOWS };

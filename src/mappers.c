@@ -5,7 +5,7 @@
 // ########################################################
 
 uint8_t Mapper000_cpu_read(void *mapper_state, uint16_t adr,
-                           uint16_t *mapped_adr, uint8_t *data) {
+                           uint32_t *mapped_adr, uint8_t *data) {
   // if  PRG_size is 16KB
   //     CPU address Bus          PRG ROM
   //     0x8000 -> 0xBFFF: Map    0x0000 -> 0x3FFF
@@ -22,7 +22,7 @@ uint8_t Mapper000_cpu_read(void *mapper_state, uint16_t adr,
 }
 
 uint8_t Mapper000_cpu_write(void *mapper_state, uint16_t adr,
-                            uint16_t *mapped_adr, uint8_t *data) {
+                            uint32_t *mapped_adr, uint8_t *data) {
   Mapper000 *mapper = (Mapper000 *)mapper_state;
   if (adr >= 0x8000) {
     (*mapped_adr) = adr & (mapper->PRG_size > (1 << 14) ? 0x7FFF : 0x3FFF);
@@ -32,7 +32,7 @@ uint8_t Mapper000_cpu_write(void *mapper_state, uint16_t adr,
 }
 
 uint8_t Mapper000_ppu_read(void *mapper_state, uint16_t adr,
-                           uint16_t *mapped_adr, uint8_t *data) {
+                           uint32_t *mapped_adr, uint8_t *data) {
   // no mapping needed
   if (adr <= 0x1fff) {
     (*mapped_adr) = adr;
@@ -42,7 +42,7 @@ uint8_t Mapper000_ppu_read(void *mapper_state, uint16_t adr,
 }
 
 uint8_t Mapper000_ppu_write(void *mapper_state, uint16_t adr,
-                            uint16_t *mapped_adr, uint8_t *data) {
+                            uint32_t *mapped_adr, uint8_t *data) {
   if (adr <= 0x1fff) {
     Mapper000 *mapper = (Mapper000 *)mapper_state;
     if (mapper->CHR_size == 0) {
@@ -63,7 +63,7 @@ void Mapper000_reset(void *mapper_state) {}
 //    MAPPER 001 aka MMC1
 // ########################################################
 uint8_t Mapper001_cpu_read(void *mapper_state, uint16_t adr,
-                           uint16_t *mapped_adr, uint8_t *data) {
+                           uint32_t *mapped_adr, uint8_t *data) {
   Mapper001 *state = (Mapper001 *)mapper_state;
   if (adr >= 0x6000 && adr <= 0x7fff) {
     // reading from ROMs RAM
@@ -92,7 +92,7 @@ uint8_t Mapper001_cpu_read(void *mapper_state, uint16_t adr,
 }
 
 uint8_t Mapper001_cpu_write(void *mapper_state, uint16_t adr,
-                            uint16_t *mapped_adr, uint8_t *data) {
+                            uint32_t *mapped_adr, uint8_t *data) {
   Mapper001 *state = (Mapper001 *)mapper_state;
   if (adr >= 0x6000 && adr <= 0x7FFF) {
 
@@ -181,7 +181,7 @@ uint8_t Mapper001_cpu_write(void *mapper_state, uint16_t adr,
 }
 
 uint8_t Mapper001_ppu_read(void *mapper_state, uint16_t adr,
-                           uint16_t *mapped_adr, uint8_t *data) {
+                           uint32_t *mapped_adr, uint8_t *data) {
   Mapper001 *state = (Mapper001 *)mapper_state;
 
   if (adr < 0x2000) {
@@ -213,7 +213,7 @@ uint8_t Mapper001_ppu_read(void *mapper_state, uint16_t adr,
 }
 
 uint8_t Mapper001_ppu_write(void *mapper_state, uint16_t adr,
-                            uint16_t *mapped_adr, uint8_t *data) {
+                            uint32_t *mapped_adr, uint8_t *data) {
   Mapper001 *state = (Mapper001 *)mapper_state;
 
   if (adr < 0x2000) {
@@ -252,7 +252,7 @@ void Mapper001_reset(void *mapper_state) {
 //    MAPPER 002
 // ########################################################
 uint8_t Mapper002_cpu_read(void *mapper_state, uint16_t adr,
-                           uint16_t *mapped_adr, uint8_t *data) {
+                           uint32_t *mapped_adr, uint8_t *data) {
   Mapper002 *state = (Mapper002 *)mapper_state;
   if (adr >= 0x8000 && adr <= 0xBFFF) {
     (*mapped_adr) = state->PRG_bank_select_low * 0x4000 + (adr & 0x3FFF);
@@ -268,7 +268,7 @@ uint8_t Mapper002_cpu_read(void *mapper_state, uint16_t adr,
 }
 
 uint8_t Mapper002_cpu_write(void *mapper_state, uint16_t adr,
-                            uint16_t *mapped_adr, uint8_t *data) {
+                            uint32_t *mapped_adr, uint8_t *data) {
   Mapper002 *state = (Mapper002 *)mapper_state;
   if (adr >= 0x8000) {
     state->PRG_bank_select_low = (*data) & 0x0F;
@@ -279,7 +279,7 @@ uint8_t Mapper002_cpu_write(void *mapper_state, uint16_t adr,
 }
 
 uint8_t Mapper002_ppu_read(void *mapper_state, uint16_t adr,
-                           uint16_t *mapped_adr, uint8_t *data) {
+                           uint32_t *mapped_adr, uint8_t *data) {
   //Mapper002 *state = (Mapper002 *)mapper_state;
   if (adr < 0x2000) {
     (*mapped_adr) = adr;
@@ -289,7 +289,7 @@ uint8_t Mapper002_ppu_read(void *mapper_state, uint16_t adr,
 }
 
 uint8_t Mapper002_ppu_write(void *mapper_state, uint16_t adr,
-                            uint16_t *mapped_adr, uint8_t *data) {
+                            uint32_t *mapped_adr, uint8_t *data) {
   Mapper002 *state = (Mapper002 *)mapper_state;
   if (adr < 0x2000) {
     if (state->CHR_size == 0) {

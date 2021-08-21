@@ -100,9 +100,9 @@ typedef enum {
   INDIRECT,
   ACCUMULATE,
   // what are these???
-  M__AbsYW,
-  M__AbsXW,
-  M__IndYW,
+  AbsYW,
+  AbsXW,
+  IndYW,
 
 } CPU_addr_mode;
 
@@ -139,5 +139,5 @@ typedef struct {
 CPU_op_cycles_t CPU_op_cycles_table[256];
 
 size_t CPU_disassemble(uint8_t *data, uint16_t size, char **out);
-size_t CPU_disassemble_arr(uint8_t *data, uint16_t size, char ***out);
+size_t CPU_disassemble_arr(uint8_t *data, uint32_t size, char ***out);
 #endif // CPU_6502_H

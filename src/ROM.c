@@ -91,9 +91,6 @@ uint8_t ROM_init_mapper(NES_ROM *rom) {
     break;
   case 2:
     SET_MAPPER_COMMON(Mapper002);
-    //((Mapper002 *)rom->mapper.state)->PRG_bank_select_low=0;
-    //((Mapper002
-    //*)rom->mapper.state)->PRG_bank_select_high=rom->PRG_size/PRG_BANK_SIZE-1;;
     break;
   default: return 0; break;
   }
@@ -426,12 +423,12 @@ void ROM_free(NES_ROM *rom) {
 }
 
 uint8_t ROM_cpu_read(NES_ROM *rom, uint16_t adr, uint8_t *data_out) {
-  uint16_t map_adr = 0;
+  uint32_t map_adr = 0;
   uint8_t map_flag = 0;
   if (rom->mapper.cpu_read(rom->mapper.state, adr, &map_adr, data_out)) {
     if (map_flag & MAP_RAM) {
       // data has already been assigned by the mapper
-      //printf("ROM_cpu_read MAP_RAM\n");
+      //printf("ROM_cpu_read MAP_RAM adr:%04X -> %04X data: %02X\n",adr,map_adr,*data_out);
       return 1;
     } else {
       (*data_out) = rom->PRG_p[map_adr];
@@ -442,13 +439,13 @@ uint8_t ROM_cpu_read(NES_ROM *rom, uint16_t adr, uint8_t *data_out) {
 }
 
 uint8_t ROM_cpu_write(NES_ROM *rom, uint16_t adr, uint8_t data) {
-  uint16_t map_adr = 0;
+  uint32_t map_adr = 0;
   uint8_t map_flag = 0;
   if ((map_flag =
            rom->mapper.cpu_write(rom->mapper.state, adr, &map_adr, &data))) {
     if (map_flag & MAP_RAM) {
       // data has already been assigned by the mapper
-      //printf("ROM_cpu_write MAP_RAM\n");
+      //printf("ROM_cpu_write MAP_RAM adr:%04X -> %04X data: %02X\n",adr,map_adr,data);
       return 1;
     } else {
       rom->PRG_p[map_adr] = data;
@@ -459,7 +456,7 @@ uint8_t ROM_cpu_write(NES_ROM *rom, uint16_t adr, uint8_t data) {
 }
 
 uint8_t ROM_ppu_read(NES_ROM *rom, uint16_t adr, uint8_t *data_out) {
-  uint16_t map_adr = 0;
+  uint32_t map_adr = 0;
 
   if (rom->mapper.ppu_read(rom->mapper.state, adr, &map_adr, data_out)) {
     (*data_out) = rom->CHR_p[map_adr];
@@ -469,7 +466,7 @@ uint8_t ROM_ppu_read(NES_ROM *rom, uint16_t adr, uint8_t *data_out) {
 }
 
 uint8_t ROM_ppu_write(NES_ROM *rom, uint16_t adr, uint8_t data) {
-  uint16_t map_adr = 0;
+  uint32_t map_adr = 0;
   if (rom->mapper.ppu_write(rom->mapper.state, adr, &map_adr, &data)) {
     rom->CHR_p[map_adr] = data;
     return 1;

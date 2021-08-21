@@ -7,7 +7,7 @@
 #include "common_types.h"
 
 #define PRG_BANK_SIZE 0x4000
-typedef uint8_t (*map_f)(void *mapper, uint16_t adr, uint16_t *mapped_adr, uint8_t *data);
+typedef uint8_t (*map_f)(void *mapper, uint16_t adr, uint32_t *mapped_adr, uint8_t *data);
 typedef void (*map_r)(void* mapper);
 typedef NES_MIRRORING_TYPE (*map_m)(void *mapper);
 
@@ -37,10 +37,10 @@ typedef struct {
   NES_MIRRORING_TYPE mirror_mode;
 } Mapper000;
 
-uint8_t Mapper000_cpu_read(void *mapper_state, uint16_t adr, uint16_t *mapped_adr, uint8_t *data);
-uint8_t Mapper000_cpu_write(void *mapper_state, uint16_t adr, uint16_t *mapped_adr,uint8_t *data);
-uint8_t Mapper000_ppu_read(void *mapper_state, uint16_t adr, uint16_t *mapped_adr, uint8_t *data);
-uint8_t Mapper000_ppu_write(void *mapper_state, uint16_t adr, uint16_t *mapped_adr,uint8_t *data);
+uint8_t Mapper000_cpu_read(void *mapper_state, uint16_t adr, uint32_t *mapped_adr, uint8_t *data);
+uint8_t Mapper000_cpu_write(void *mapper_state, uint16_t adr, uint32_t *mapped_adr,uint8_t *data);
+uint8_t Mapper000_ppu_read(void *mapper_state, uint16_t adr, uint32_t *mapped_adr, uint8_t *data);
+uint8_t Mapper000_ppu_write(void *mapper_state, uint16_t adr, uint32_t *mapped_adr,uint8_t *data);
 NES_MIRRORING_TYPE Mapper000_mirror(void *mapper_state);
 void Mapper000_reset(void *mapper_state);
 
@@ -69,10 +69,10 @@ typedef struct {
   NES_MIRRORING_TYPE mirror_mode;
 } Mapper001;
 
-uint8_t Mapper001_cpu_read(void *mapper_state, uint16_t adr, uint16_t *mapped_adr,uint8_t *data);
-uint8_t Mapper001_cpu_write(void *mapper_state, uint16_t adr, uint16_t *mapped_adr,uint8_t *data);
-uint8_t Mapper001_ppu_read(void *mapper_state, uint16_t adr, uint16_t *mapped_adr,uint8_t *data);
-uint8_t Mapper001_ppu_write(void *mapper_state, uint16_t adr, uint16_t *mapped_adr,uint8_t *data);
+uint8_t Mapper001_cpu_read(void *mapper_state, uint16_t adr, uint32_t *mapped_adr,uint8_t *data);
+uint8_t Mapper001_cpu_write(void *mapper_state, uint16_t adr, uint32_t *mapped_adr,uint8_t *data);
+uint8_t Mapper001_ppu_read(void *mapper_state, uint16_t adr, uint32_t *mapped_adr,uint8_t *data);
+uint8_t Mapper001_ppu_write(void *mapper_state, uint16_t adr, uint32_t *mapped_adr,uint8_t *data);
 NES_MIRRORING_TYPE Mapper001_mirror(void *mapper_state);
 void Mapper001_reset(void *mapper_state);
 
@@ -89,10 +89,10 @@ typedef struct {
   NES_MIRRORING_TYPE mirror_mode;
 } Mapper002;
 
-uint8_t Mapper002_cpu_read(void *mapper_state, uint16_t adr, uint16_t *mapped_adr,uint8_t *data);
-uint8_t Mapper002_cpu_write(void *mapper_state, uint16_t adr, uint16_t *mapped_adr,uint8_t *data);
-uint8_t Mapper002_ppu_read(void *mapper_state, uint16_t adr, uint16_t *mapped_adr,uint8_t *data);
-uint8_t Mapper002_ppu_write(void *mapper_state, uint16_t adr, uint16_t *mapped_adr,uint8_t *data);
+uint8_t Mapper002_cpu_read(void *mapper_state, uint16_t adr, uint32_t *mapped_adr,uint8_t *data);
+uint8_t Mapper002_cpu_write(void *mapper_state, uint16_t adr, uint32_t *mapped_adr,uint8_t *data);
+uint8_t Mapper002_ppu_read(void *mapper_state, uint16_t adr, uint32_t *mapped_adr,uint8_t *data);
+uint8_t Mapper002_ppu_write(void *mapper_state, uint16_t adr, uint32_t *mapped_adr,uint8_t *data);
 NES_MIRRORING_TYPE Mapper002_mirror(void *mapper_state);
 void Mapper002_reset(void *mapper_state);
 

@@ -11,7 +11,13 @@ struct nk_color RGBAu32_to_nk_color(uint32_t in) {
   return col;
 }
 
-void GUI_init(GUI_context *ctx) {
+static inline char byte_to_printable_ascii(uint8_t b){
+  if(b>=0x20 && b<=0x7E)return b;
+  else return '.';
+}
+#define bta(b) byte_to_printable_ascii(b)
+
+void GUI_init(GUI_context *ctx, NES_BUS *nes) {
 
   if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
     LOG_ERROR("SDL INIT ERROR: %s\n", SDL_GetError());
@@ -80,6 +86,15 @@ void GUI_init(GUI_context *ctx) {
     ctx->bg.g = 0.18f;
     ctx->bg.b = 0.24f;
     ctx->bg.a = 1.0f;
+
+    // GUI state
+    ctx->state.nes = nes;
+
+    ctx->state.show_CPU_RAM = nk_false;
+    ctx->state.show_NAM_RAM = nk_false;
+    ctx->state.show_OAM_RAM = nk_false;
+    ctx->state.show_OAS_RAM = nk_false;
+    ctx->state.show_MAP_RAM = nk_false;
 }
 
 int GUI_process_events(GUI_context *ctx) {
@@ -149,12 +164,22 @@ void GUI_menu_bar(GUI_context *gui_ctx) {
       nk_menu_end(ctx);
     }
 
-    if (nk_menu_begin_label(ctx, "VIEW", NK_TEXT_LEFT, nk_vec2(120, 200))) {
+    if (nk_menu_begin_label(ctx, "MEMORY", NK_TEXT_LEFT, nk_vec2(210, 200))) {
       nk_layout_row_dynamic(ctx, 25, 1);
-      if (nk_menu_item_label(ctx, "Debug", NK_TEXT_LEFT)) {
-      }
-      if (nk_menu_item_label(ctx, "stuff etc", NK_TEXT_LEFT)) {
-      }
+      nk_checkbox_label(ctx, "CPU RAM", &gui_ctx->state.show_CPU_RAM);
+      nk_checkbox_label(ctx,  "Name table RAM", &gui_ctx->state.show_NAM_RAM);
+      nk_checkbox_label(ctx, "Object Attribute Memory", &gui_ctx->state.show_OAM_RAM);
+      nk_checkbox_label(ctx, "Object Attribute Scanline", &gui_ctx->state.show_OAS_RAM);
+      nk_checkbox_label(ctx, "Mapper", &gui_ctx->state.show_MAP_RAM);
+      
+
+      nk_menu_end(ctx);
+    }
+
+    if (nk_menu_begin_label(ctx, "PPU", NK_TEXT_LEFT, nk_vec2(120, 200))) {
+      nk_layout_row_dynamic(ctx, 25, 1);
+      nk_checkbox_label(ctx, "Pattern table", &gui_ctx->state.show_Pattern_table);
+
       nk_menu_end(ctx);
     }
 
@@ -176,7 +201,7 @@ void GUI_menu_bar(GUI_context *gui_ctx) {
 void GUI_cpu_state(GUI_context *gui_ctx, NES_BUS *nes) {
   struct nk_context *ctx = gui_ctx->nk_ctx;
   CPU_state state = nes->cpu.state;
-  if (nk_begin(ctx, "cpu", nk_rect(gui_ctx->win_width - 540, 30, 540, 450),
+  if (nk_begin(ctx, "cpu", nk_rect(0, 30, 300, 150),
                NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_TITLE | NK_WINDOW_MOVABLE |
                    NK_WINDOW_SCALABLE)) {
 
@@ -253,72 +278,134 @@ void GUI_cpu_state(GUI_context *gui_ctx, NES_BUS *nes) {
     char str4[64];
     snprintf(str4, 64, "Cycles: %lu", state.cycles_accumulated);
     nk_label(ctx, str4, NK_TEXT_LEFT);
-
-    /* nk_layout_row_static(ctx, 8, 530, 1);
-    nk_label(ctx,
-             "      00  01  02   03  04  05   06  07  08   09  0A  0B   0C  "
-             "0D  0E  0F",
-             NK_TEXT_ALIGN_LEFT);
-    nk_layout_row_static(ctx, 128 * 3, 530, 1);
-    if (nk_group_begin(ctx, "Group1", NK_WINDOW_BORDER)) {
-
-      GUI_memory_view(gui_ctx, &nes->ram[STACK_LOCATION], 0x100);
-
-      nk_group_end(ctx);
-    } */
   }
   nk_end(ctx);
 }
 
-void GUI_asm_txt(GUI_context *gui_ctx, char **text, uint16_t size,
-                 const CPU_state state) {
-  struct nk_context *ctx = gui_ctx->nk_ctx;
-  if (nk_begin(ctx, "asm",
-               nk_rect(gui_ctx->win_width - 300, 470, 300,
-                       gui_ctx->win_height - 130),
-               NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_TITLE|NK_WINDOW_MOVABLE)) {
+void GUI_memory(GUI_context *gui_ctx) {
+static const int x=50;
+static const int y=400;
+static const int w=680;
+static const int h=380+16;
+pair_size_t range = {0,0};
+size_t poi=0;
+#define HEX_00_0F_STR   "    00  01  02  03  04  05  06  07  08  09  0A  0B  0C  0D  0E  0F"
+  if (gui_ctx->state.show_CPU_RAM) {
+    if (nk_begin(gui_ctx->nk_ctx,
+                 "CPU"HEX_00_0F_STR,
+                 nk_rect(x, y, w, h),
+                 NK_WINDOW_TITLE | NK_WINDOW_BORDER | NK_WINDOW_MOVABLE |
+                     NK_WINDOW_SCALABLE | NK_WINDOW_MINIMIZABLE)) {
+      GUI_cpu_ram_view(gui_ctx, gui_ctx->state.nes);
+    }
+    nk_end(gui_ctx->nk_ctx);
+  }
 
-    // nk_layout_row_static(ctx, gui_ctx->win_height , 200, 1);
-    nk_layout_row_static(ctx, 10, 220, 1);
-    // int len2;
-    // nk_flags active = nk_edit_string(ctx, NK_EDIT_BOX, text, &len2,
-    //                                 50 * (16 + 5 + 1) + 1, nk_filter_ascii);
-    int l_pcs[10];
-    for (int lines = 0, i = -1; lines < 10; --i) {
-      int pc = (state.PC + i) % size;
-      if (pc < 0 || !text[pc]) {
-        continue;
+  if (gui_ctx->state.show_NAM_RAM) {
+    if (nk_begin(gui_ctx->nk_ctx,
+                 "NAM"HEX_00_0F_STR,
+                 nk_rect(x, y, w, h),
+                 NK_WINDOW_TITLE | NK_WINDOW_BORDER | NK_WINDOW_MOVABLE |
+                     NK_WINDOW_SCALABLE | NK_WINDOW_MINIMIZABLE)) {
+      GUI_memory_view(gui_ctx, gui_ctx->state.nes->ppu.name_table, 2048,range,poi);
+    }
+    nk_end(gui_ctx->nk_ctx);
+  }
+
+  if (gui_ctx->state.show_OAM_RAM) {
+    if (nk_begin(gui_ctx->nk_ctx,
+                 "OAM"HEX_00_0F_STR,
+                 nk_rect(x, y, w, h),
+                 NK_WINDOW_TITLE | NK_WINDOW_BORDER | NK_WINDOW_MOVABLE |
+                     NK_WINDOW_SCALABLE | NK_WINDOW_MINIMIZABLE)) {
+      GUI_memory_view(gui_ctx, gui_ctx->state.nes->ppu.OAM, 64 * 4,range,poi);
+    }
+    nk_end(gui_ctx->nk_ctx);
+  }
+
+  if (gui_ctx->state.show_OAS_RAM) {
+    if (nk_begin(gui_ctx->nk_ctx,
+                 "OAS"HEX_00_0F_STR,
+                 nk_rect(x, y, w, h),
+                 NK_WINDOW_TITLE | NK_WINDOW_BORDER | NK_WINDOW_MOVABLE |
+                     NK_WINDOW_SCALABLE | NK_WINDOW_MINIMIZABLE)) {
+      GUI_memory_view(gui_ctx, gui_ctx->state.nes->ppu.sprite_scan_line_OA,
+                      8 * 4,range,poi);
+    }
+    nk_end(gui_ctx->nk_ctx);
+  }
+
+  if (gui_ctx->state.show_MAP_RAM) {
+    if (gui_ctx->state.nes->rom->mapper_id == 1) {
+      if (nk_begin(
+              gui_ctx->nk_ctx,
+              "001"HEX_00_0F_STR,
+              nk_rect(x, y, w, h),
+              NK_WINDOW_TITLE | NK_WINDOW_BORDER | NK_WINDOW_MOVABLE |
+                  NK_WINDOW_SCALABLE | NK_WINDOW_MINIMIZABLE)) {
+        GUI_memory_view(
+            gui_ctx,
+            ((Mapper001 *)(gui_ctx->state.nes->rom->mapper.state))->RAM,
+            32 * 1024,range,poi);
       }
-      // nk_label(ctx, text[pc], NK_TEXT_LEFT);
-      l_pcs[lines] = pc;
-      lines++;
-    }
-    for (int i = 9; i >= 0; --i) {
-      nk_label(ctx, text[l_pcs[i]], NK_TEXT_LEFT);
-    }
-    if (text[(state.PC + 0) % size]) {
-      nk_label_colored(ctx, text[(state.PC + 0) % size], NK_TEXT_LEFT,
-                       nk_rgb(255, 255, 0));
+      nk_end(gui_ctx->nk_ctx);
     } else {
-      nk_label_colored(ctx, "ERROR disasm PC null", NK_TEXT_LEFT,
-                       nk_rgb(255, 255, 0));
-      printf("pc:%04X op: %02X %s\n", state.PC, state.last_op,
-             CPU_op_names[state.last_op]);
-    }
-    for (int lines = 0, i = 1; lines < 10; ++i) {
-      int pc = (state.PC + i) % size;
-      if (pc < 0 || !text[pc]) {
-        continue;
-      }
-      nk_label(ctx, text[pc], NK_TEXT_LEFT);
-      lines++;
     }
   }
-  nk_end(ctx);
 }
 
-nk_bool GUI_color_txt_button(GUI_context *ctx, uint32_t rgba, const char *txt, nk_flags txt_align) {
-static struct nk_style_button color_txt_btn;
+void GUI_asm_txt(GUI_context *gui_ctx, Disassembly6502 *dasm,
+                 NES_BUS *nes) {
+struct nk_context *ctx = gui_ctx->nk_ctx;
+// len 56
+//0000   ISB  $FFFF,X  ;ABS_XW     (0xFF) (unofficial)ISB
+const int cw=8;//ctx->style.font->width+1;
+const int h=ctx->style.font->height+3;
+if (nk_begin(ctx, "asm",
+               nk_rect(0,gui_ctx->win_height/2-60,600,470),
+              NK_WINDOW_TITLE | NK_WINDOW_MOVABLE|NK_WINDOW_SCALABLE)) {
+//struct nk_rect b={0,0,56*8,h};
+//nk_layout_space_begin(ctx,NK_STATIC,h,21);
+//nk_layout_space_push()
+CPU_state state=nes->cpu.state;
+uint32_t mapped_adr;
+uint8_t dat;
+uint8_t map_flag = nes->rom->mapper.cpu_read(nes->rom->mapper.state,state.PC,&mapped_adr,&dat);
+
+static const int len=12+56; 
+char line[len];
+uint32_t l_adrs[10];
+// get constant number of lines before PC
+for (int lines = 0, i = -1; lines < 10; --i) {
+      uint32_t adr = (mapped_adr + i);
+      if(adr>dasm->size){adr=dasm->size-1;}
+      l_adrs[lines] = adr;
+      lines++;
+    }
+// at PC    
+nk_layout_row_static(ctx, h, cw*len+20, 1);
+for (int i = 9; i >= 0; --i) {
+      snprintf(line,len,"%04X<-%04X  %s",l_adrs[i], state.PC+(i-10), dasm->lines[l_adrs[i]]);
+      nk_label(ctx, line, NK_TEXT_LEFT);
+}
+// get constant number of lines after PC
+snprintf(line,len,"%04X<-%04X  %s",mapped_adr,state.PC, dasm->lines[mapped_adr]);
+nk_label_colored(ctx, line, NK_TEXT_LEFT,nk_rgb(255, 255, 0));
+for (int lines = 0, i = 1; lines < 10; ++i) {
+      uint32_t adr = (mapped_adr + i);
+      if(adr>dasm->size)adr=0;
+      snprintf(line,len,"%04X<-%04X  %s",adr, state.PC+i, dasm->lines[adr]);
+      nk_label(ctx, line, NK_TEXT_LEFT);
+      lines++;
+}
+
+}nk_end(ctx);
+  
+}
+
+nk_bool GUI_color_txt_button(GUI_context *ctx, uint32_t rgba, const char *txt,
+                             nk_flags txt_align) {
+  static struct nk_style_button color_txt_btn;
   color_txt_btn.rounding = 0;
   color_txt_btn.normal.data.color = RGBAu32_to_nk_color(rgba);
   color_txt_btn.hover.data.color = RGBAu32_to_nk_color(rgba);
@@ -412,44 +499,81 @@ uint16_t GUI_palette_table(GUI_context *ctx){
       return ret;
 }
 
-// clang-format on
-
-
-uint16_t GUI_memory_view(GUI_context *gctx, uint8_t *memory, size_t nbytes) {
+uint16_t GUI_memory_view(GUI_context *gctx, uint8_t *memory, size_t nbytes, pair_size_t interesting_range, size_t interesting_pos) {
   struct nk_context *ctx = gctx->nk_ctx;
   struct nk_rect tmp;
-
-static char str[3];
-static int len_s;
-static uint8_t popup_edit = 0;
-static size_t edit = 0;
-static struct nk_rect b;
+  static char str[3];
+  static int len_s;
+  static uint8_t popup_edit = 0;
+  static size_t edit = 0;
+  static struct nk_rect b;
 
   char *mem_hex = malloc(3 * nbytes);
   for (size_t i = 0; i < nbytes; ++i) {
     snprintf(&mem_hex[i * 2], 3, "%02X", memory[i]);
   }
 
-  nk_layout_row_static(ctx, 16, 26, 16 + 1);
+  //(int)ctx->style.font->width; 
+  int cw = 7;//character width of default font
+  int ch = 13;//character height of default font
+
+  const int w=cw*3;// one byte 0x00 cell size
+  
+  const uint32_t def_color = 0x353535ff;
+  const uint32_t range_color = 0x404048ff;
+  const uint32_t pos_color = 0x694940ff;
   size_t row = 0;
-  nk_label(ctx, "0000", NK_TEXT_ALIGN_CENTERED);
-  const uint32_t def_color=0x353535ff;
+  struct nk_rect lb;
+  lb.h=ch+5;
+  char str_row[20];
   for (size_t i = 0; i < nbytes; ++i) {
+    if (i % 16 == 0) {
+      if(i!=0){
+        lb.x+=w*2;lb.w=cw*20;nk_layout_space_push(ctx,lb);
+        nk_label(ctx, str_row, NK_TEXT_ALIGN_LEFT);
+        nk_layout_space_end(ctx);
+      }
+      
+      nk_layout_space_begin(ctx,NK_STATIC,16,16 +2);
+      lb.x=0;lb.y=0;lb.w=4*cw;
+      nk_layout_space_push(ctx,lb);
+      lb.w=cw*4;lb.x=cw*2;
+      
+      char crow[5];
+      snprintf(crow, 5, "%04lX", row);
+      nk_label(ctx, crow, NK_TEXT_ALIGN_CENTERED);
+
+
+        snprintf(str_row,20,"%c%c%c%c" "%c%c%c%c" "%c%c%c%c" "%c%c%c%c",
+bta(memory[row   ]), bta(memory[row+ 1]), bta(memory[row+ 2]), bta(memory[row+ 3]),
+bta(memory[row+ 4]), bta(memory[row+ 5]), bta(memory[row+ 6]), bta(memory[row+ 7]),
+bta(memory[row+ 8]), bta(memory[row+ 9]), bta(memory[row+10]), bta(memory[row+11]),
+bta(memory[row+12]), bta(memory[row+13]), bta(memory[row+14]), bta(memory[row+15])
+        );
+      row += 0x10;
+    }
+
+    lb.x+=cw*4;nk_layout_space_push(ctx,lb);
     tmp = nk_widget_bounds(ctx);
-    if (GUI_color_txt_button(gctx,def_color, &mem_hex[i * 2],NK_TEXT_ALIGN_CENTERED)) {
+    
+    uint32_t color = def_color;
+    if ( (interesting_range.y !=0 && interesting_range.y>interesting_range.x) &&   
+      (i >= interesting_range.x && i <= interesting_range.y))
+      color = range_color;
+    if (interesting_pos!=0 && i == interesting_pos)
+      color = pos_color;
+    if (GUI_color_txt_button(gctx, color, &mem_hex[i * 2],
+                             NK_TEXT_ALIGN_CENTERED)) {
       edit = i;
       popup_edit = 1;
       b = tmp;
     }
-    if ((i + 1) % 16 == 0) {
-      nk_layout_row_static(ctx, 16, 26, 16 + 1);
-      row += 0x10;
-      char crow[5];
-      snprintf(crow, 5, "%04lX", row);
-      nk_label(ctx, crow, NK_TEXT_ALIGN_CENTERED);
-    }
-  }
 
+  }
+  lb.x+=w*2;lb.w=cw*20;nk_layout_space_push(ctx,lb);
+  nk_label(ctx, str_row, NK_TEXT_ALIGN_LEFT);
+  nk_layout_space_end(ctx);
+  
   if (popup_edit) {
     nk_layout_space_begin(ctx, NK_STATIC, 32, 1);
     struct nk_rect b2 = nk_layout_space_rect_to_local(ctx, b);
@@ -466,74 +590,18 @@ static struct nk_rect b;
     }
     nk_layout_space_end(ctx);
   }
-  // nk_flags f = nk_edit_string(ctx, NK_EDIT_SIMPLE, str, &len_s, 64,
-  // nk_filter_hex); if( !(f&NK_EDIT_ACTIVE) )
-  // {snprintf(str,3,"%02X",memory[0]);} printf("%s \n",str); else
   return 0;
 }
+// clang-format on
+
 
 uint16_t GUI_cpu_ram_view(GUI_context *gctx, NES_BUS *nes) {
-  uint8_t *memory = nes->ram;
-  struct nk_context *ctx = gctx->nk_ctx;
-  struct nk_rect tmp;
-
-static char str[3];
-static int len_s;
-static uint8_t popup_edit = 0;
-static size_t edit = 0;
-static struct nk_rect b;
-
-  char *mem_hex = malloc(3 * CPU_RAM_SIZE);
-  for (size_t i = 0; i < CPU_RAM_SIZE; ++i) {
-    snprintf(&mem_hex[i * 2], 3, "%02X", memory[i]);
-  }
-
-  nk_layout_row_static(ctx, 16, 26, 16 + 1);
-  size_t row = 0;
-  nk_label(ctx, "0000", NK_TEXT_ALIGN_CENTERED);
-  const uint32_t def_color=0x353535ff;
-  const uint32_t stack_color=0x404048ff;
-  const uint32_t SP_color=0x694940ff;
-  for (size_t i = 0; i < CPU_RAM_SIZE; ++i) {
-    uint32_t color = def_color;
-    if(i>=0x100&&i<=0x1ff)color=stack_color;
-    if(i==(size_t)(0x100+nes->cpu.state.SP) )color=SP_color;
-    tmp = nk_widget_bounds(ctx);
-    if (GUI_color_txt_button(gctx,color, &mem_hex[i * 2],NK_TEXT_ALIGN_CENTERED)) {
-      edit = i;
-      popup_edit = 1;
-      b = tmp;
-    }
-    if ((i + 1) % 16 == 0) {
-      nk_layout_row_static(ctx, 16, 26, 16 + 1);
-      row += 0x10;
-      char crow[5];
-      snprintf(crow, 5, "%04lX", row);
-      nk_label(ctx, crow, NK_TEXT_ALIGN_CENTERED);
-    }
-  }
-
-  if (popup_edit) {
-    nk_layout_space_begin(ctx, NK_STATIC, 32, 1);
-    struct nk_rect b2 = nk_layout_space_rect_to_local(ctx, b);
-    b2.x -= 3;
-    b2.y -= 3;
-    b2.h += 3;
-    b2.w += 3;
-    nk_layout_space_push(ctx, b2);
-    nk_flags active = nk_edit_string(ctx, NK_EDIT_FIELD | NK_EDIT_SIG_ENTER,
-                                     str, &len_s, 3, nk_filter_hex);
-    if (active & NK_EDIT_COMMITED) {
-      memory[edit] = strtoul(str, NULL, 16);
-      popup_edit = 0;
-    }
-    nk_layout_space_end(ctx);
-  }
-  // nk_flags f = nk_edit_string(ctx, NK_EDIT_SIMPLE, str, &len_s, 64,
-  // nk_filter_hex); if( !(f&NK_EDIT_ACTIVE) )
-  // {snprintf(str,3,"%02X",memory[0]);} printf("%s \n",str); else
+  pair_size_t range;
+  range.x=0x100;range.y=0x1ff;
+  GUI_memory_view(gctx,nes->ram,CPU_RAM_SIZE,range,0x100+nes->cpu.state.SP);
   return 0;
 }
+  
 
 void GUI_palette_view(GUI_context *gctx, NES_BUS *nes) {
   const int pal_h = 18;
@@ -604,8 +672,8 @@ void GUI_ppu_state(GUI_context *gctx, const PPU *ppu) {
   struct nk_context *ctx = gctx->nk_ctx;
 
   if (nk_begin(ctx, "ppu",
-               nk_rect(gctx->win_width - 900, 30, 290, gctx->win_height - 30),
-               NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_TITLE | NK_WINDOW_MOVABLE)) {
+               nk_rect(gctx->win_width - 900, 30, 290, 150),
+               NK_WINDOW_TITLE | NK_WINDOW_MOVABLE | NK_WINDOW_SCALABLE)) {
     char str[16];
 
     nk_layout_row_dynamic(ctx, 16, 2);

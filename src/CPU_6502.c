@@ -87,9 +87,9 @@ void CPU_print_state_(CPU_6502 *cpu, FILE *fd) {
     mode = "ACCUMULATE";
     break;
     // what are these???
-  case M__AbsYW: mode = "M__AbsYW"; break;
-  case M__AbsXW: mode = "M__AbsXW"; break;
-  case M__IndYW: mode = "M__IndYW"; break;
+  case AbsYW: mode = "AbsYW"; break;
+  case AbsXW: mode = "AbsXW"; break;
+  case IndYW: mode = "IndYW"; break;
   case NONE: mode = "NONE"; break;
   default: mode = "fell through"; break;
   }
@@ -146,12 +146,12 @@ void CPU_log_state_simple(CPU_6502 *cpu, FILE *fd, uint16_t last_PC,
   } else {
     if (CPU_addr_mode_table[last_op] == INDIRECT_X ||
         CPU_addr_mode_table[last_op] == INDIRECT_Y ||
-        CPU_addr_mode_table[last_op] == M__IndYW) {
+        CPU_addr_mode_table[last_op] == IndYW) {
       fprintf(fd, "%02X     ", cpu->state.raw_operand_ind);
     } else if (CPU_addr_mode_table[last_op] == ABSOLUTE_X ||
                CPU_addr_mode_table[last_op] == ABSOLUTE_Y ||
-               CPU_addr_mode_table[last_op] == M__AbsXW ||
-               CPU_addr_mode_table[last_op] == M__AbsYW ||
+               CPU_addr_mode_table[last_op] == AbsXW ||
+               CPU_addr_mode_table[last_op] == AbsYW ||
                CPU_addr_mode_table[last_op] == ABSOLUTE) {
       fprintf(fd, "%02X %02X  ", cpu->state.raw_operand_abs_low,
               cpu->state.raw_operand_abs_high);
@@ -416,9 +416,9 @@ uint16_t CPU_get_operand(CPU_6502 *cpu) {
   case ACCUMULATE:
     return CPU_get_accumulate(cpu);
     // what are these???
-  case M__AbsYW: return CPU_get_absolute_idx_Y(cpu);
-  case M__AbsXW: return CPU_get_absolute_idx_X(cpu);
-  case M__IndYW: return CPU_get_indirect_idx_Y(cpu);
+  case AbsYW: return CPU_get_absolute_idx_Y(cpu);
+  case AbsXW: return CPU_get_absolute_idx_X(cpu);
+  case IndYW: return CPU_get_indirect_idx_Y(cpu);
   case NONE: return 0;
   default: return 0;
   }
@@ -1333,21 +1333,21 @@ opcode_func_t CPU_op_table[] = {
 CPU_addr_mode CPU_addr_mode_table[] ={
 //      0           1              2             3              4              5              6              7              8           9              A             B              C              D              E              F
         IMPLICIT,   INDIRECT_X,    NONE,         INDIRECT_X,    ZEROPAGE,      ZEROPAGE,      ZEROPAGE,      ZEROPAGE,      IMPLICIT,    IMMIDIATE,     ACCUMULATE,  IMMIDIATE,     ABSOLUTE,      ABSOLUTE,      ABSOLUTE,      ABSOLUTE,    //0
-        RELATIVE,   INDIRECT_Y,    NONE,         M__IndYW,      ZEROPAGE_X,    ZEROPAGE_X,    ZEROPAGE_X,    ZEROPAGE_X,    IMPLICIT,    ABSOLUTE_Y,    IMPLICIT,    M__AbsYW,      ABSOLUTE_X,    ABSOLUTE_X,    M__AbsXW,      M__AbsXW,    //1
+        RELATIVE,   INDIRECT_Y,    NONE,         IndYW,      ZEROPAGE_X,    ZEROPAGE_X,    ZEROPAGE_X,    ZEROPAGE_X,    IMPLICIT,    ABSOLUTE_Y,    IMPLICIT,    AbsYW,      ABSOLUTE_X,    ABSOLUTE_X,    AbsXW,      AbsXW,    //1
         ABSOLUTE,   INDIRECT_X,    NONE,         INDIRECT_X,    ZEROPAGE,      ZEROPAGE,      ZEROPAGE,      ZEROPAGE,      IMPLICIT,    IMMIDIATE,     ACCUMULATE,  IMMIDIATE,     ABSOLUTE,      ABSOLUTE,      ABSOLUTE,      ABSOLUTE,    //2
-        RELATIVE,   INDIRECT_Y,    NONE,         M__IndYW,      ZEROPAGE_X,    ZEROPAGE_X,    ZEROPAGE_X,    ZEROPAGE_X,    IMPLICIT,    ABSOLUTE_Y,    IMPLICIT,    M__AbsYW,      ABSOLUTE_X,    ABSOLUTE_X,    M__AbsXW,      M__AbsXW,    //3
+        RELATIVE,   INDIRECT_Y,    NONE,         IndYW,      ZEROPAGE_X,    ZEROPAGE_X,    ZEROPAGE_X,    ZEROPAGE_X,    IMPLICIT,    ABSOLUTE_Y,    IMPLICIT,    AbsYW,      ABSOLUTE_X,    ABSOLUTE_X,    AbsXW,      AbsXW,    //3
         IMPLICIT,   INDIRECT_X,    NONE,         INDIRECT_X,    ZEROPAGE,      ZEROPAGE,      ZEROPAGE,      ZEROPAGE,      IMPLICIT,    IMMIDIATE,     ACCUMULATE,  IMMIDIATE,     ABSOLUTE,      ABSOLUTE,      ABSOLUTE,      ABSOLUTE,    //4
-        RELATIVE,   INDIRECT_Y,    NONE,         M__IndYW,      ZEROPAGE_X,    ZEROPAGE_X,    ZEROPAGE_X,    ZEROPAGE_X,    IMPLICIT,    ABSOLUTE_Y,    IMPLICIT,    M__AbsYW,      ABSOLUTE_X,    ABSOLUTE_X,    M__AbsXW,      M__AbsXW,    //5
+        RELATIVE,   INDIRECT_Y,    NONE,         IndYW,      ZEROPAGE_X,    ZEROPAGE_X,    ZEROPAGE_X,    ZEROPAGE_X,    IMPLICIT,    ABSOLUTE_Y,    IMPLICIT,    AbsYW,      ABSOLUTE_X,    ABSOLUTE_X,    AbsXW,      AbsXW,    //5
         IMPLICIT,   INDIRECT_X,    NONE,         INDIRECT_X,    ZEROPAGE,      ZEROPAGE,      ZEROPAGE,      ZEROPAGE,      IMPLICIT,    IMMIDIATE,     ACCUMULATE,  IMMIDIATE,     INDIRECT,      ABSOLUTE,      ABSOLUTE,      ABSOLUTE,    //6
-        RELATIVE,   INDIRECT_Y,    NONE,         M__IndYW,      ZEROPAGE_X,    ZEROPAGE_X,    ZEROPAGE_X,    ZEROPAGE_X,    IMPLICIT,    ABSOLUTE_Y,    IMPLICIT,    M__AbsYW,      ABSOLUTE_X,    ABSOLUTE_X,    M__AbsXW,      M__AbsXW,    //7
+        RELATIVE,   INDIRECT_Y,    NONE,         IndYW,      ZEROPAGE_X,    ZEROPAGE_X,    ZEROPAGE_X,    ZEROPAGE_X,    IMPLICIT,    ABSOLUTE_Y,    IMPLICIT,    AbsYW,      ABSOLUTE_X,    ABSOLUTE_X,    AbsXW,      AbsXW,    //7
         IMMIDIATE,  INDIRECT_X,    IMMIDIATE,    INDIRECT_X,    ZEROPAGE,      ZEROPAGE,      ZEROPAGE,      ZEROPAGE,      IMPLICIT,    IMMIDIATE,     IMPLICIT,    IMMIDIATE,     ABSOLUTE,      ABSOLUTE,      ABSOLUTE,      ABSOLUTE,    //8
-        RELATIVE,   M__IndYW,      NONE,         M__IndYW,      ZEROPAGE_X,    ZEROPAGE_X,    ZEROPAGE_Y,    ZEROPAGE_Y,    IMPLICIT,    M__AbsYW,      IMPLICIT,    M__AbsYW,      M__AbsXW,      M__AbsXW,      M__AbsYW,      M__AbsYW,    //9
+        RELATIVE,   IndYW,      NONE,         IndYW,      ZEROPAGE_X,    ZEROPAGE_X,    ZEROPAGE_Y,    ZEROPAGE_Y,    IMPLICIT,    AbsYW,      IMPLICIT,    AbsYW,      AbsXW,      AbsXW,      AbsYW,      AbsYW,    //9
         IMMIDIATE,  INDIRECT_X,    IMMIDIATE,    INDIRECT_X,    ZEROPAGE,      ZEROPAGE,      ZEROPAGE,      ZEROPAGE,      IMPLICIT,    IMMIDIATE,     IMPLICIT,    IMMIDIATE,     ABSOLUTE,      ABSOLUTE,      ABSOLUTE,      ABSOLUTE,    //A
         RELATIVE,   INDIRECT_Y,    NONE,         INDIRECT_Y,    ZEROPAGE_X,    ZEROPAGE_X,    ZEROPAGE_Y,    ZEROPAGE_Y,    IMPLICIT,    ABSOLUTE_Y,    IMPLICIT,    ABSOLUTE_Y,    ABSOLUTE_X,    ABSOLUTE_X,    ABSOLUTE_Y,    ABSOLUTE_Y,  //B
         IMMIDIATE,  INDIRECT_X,    IMMIDIATE,    INDIRECT_X,    ZEROPAGE,      ZEROPAGE,      ZEROPAGE,      ZEROPAGE,      IMPLICIT,    IMMIDIATE,     IMPLICIT,    IMMIDIATE,     ABSOLUTE,      ABSOLUTE,      ABSOLUTE,      ABSOLUTE,    //C
-        RELATIVE,   INDIRECT_Y,    NONE,         M__IndYW,      ZEROPAGE_X,    ZEROPAGE_X,    ZEROPAGE_X,    ZEROPAGE_X,    IMPLICIT,    ABSOLUTE_Y,    IMPLICIT,    M__AbsYW,      ABSOLUTE_X,    ABSOLUTE_X,    M__AbsXW,      M__AbsXW,    //D
+        RELATIVE,   INDIRECT_Y,    NONE,         IndYW,      ZEROPAGE_X,    ZEROPAGE_X,    ZEROPAGE_X,    ZEROPAGE_X,    IMPLICIT,    ABSOLUTE_Y,    IMPLICIT,    AbsYW,      ABSOLUTE_X,    ABSOLUTE_X,    AbsXW,      AbsXW,    //D
         IMMIDIATE,  INDIRECT_X,    IMMIDIATE,    INDIRECT_X,    ZEROPAGE,      ZEROPAGE,      ZEROPAGE,      ZEROPAGE,      IMPLICIT,    IMMIDIATE,     IMPLICIT,    IMMIDIATE,     ABSOLUTE,      ABSOLUTE,      ABSOLUTE,      ABSOLUTE,    //E
-        RELATIVE,   INDIRECT_Y,    NONE,         M__IndYW,      ZEROPAGE_X,    ZEROPAGE_X,    ZEROPAGE_X,    ZEROPAGE_X,    IMPLICIT,    ABSOLUTE_Y,    IMPLICIT,    M__AbsYW,      ABSOLUTE_X,    ABSOLUTE_X,    M__AbsXW,      M__AbsXW     //F
+        RELATIVE,   INDIRECT_Y,    NONE,         IndYW,      ZEROPAGE_X,    ZEROPAGE_X,    ZEROPAGE_X,    ZEROPAGE_X,    IMPLICIT,    ABSOLUTE_Y,    IMPLICIT,    AbsYW,      ABSOLUTE_X,    ABSOLUTE_X,    AbsXW,      AbsXW     //F
 };
 
 CPU_op_cycles_t CPU_op_cycles_table[] ={
@@ -1369,7 +1369,7 @@ CPU_op_cycles_t CPU_op_cycles_table[] ={
 /*E*/{2,0},  {6,0},  {2,0},  {8,0},  {3,0},  {3,0},  {5,0},  {5,0},  {2,0},  {2,0},  {2,0},  {2,0},  {4,0},  {4,0},  {6,0},  {6,0}, //E
 /*F*/{2,1},  {5,1},  {0,0},  {8,0},  {4,0},  {4,0},  {6,0},  {6,0},  {2,0},  {4,1},  {2,0},  {7,0},  {4,1},  {4,1},  {7,0},  {7,0}  //F
 };
-/*
+/*  ???
 No page crossing:                    Page crossing:
 	 0 1 2 3 4 5 6 7 8 9 A B C D E F      0 1 2 3 4 5 6 7 8 9 A B C D E F
 	 --------------------------------    -------------------------------
@@ -1471,9 +1471,9 @@ size_t CPU_disassemble(uint8_t *data, uint16_t size, char **out) {
       case RELATIVE: operand=data[++adr];                  n=sprintf(wpos,"  %02x     rel   \n",operand);wpos+=n;total_size+=n;rel_adr+=2;break;
       case IMPLICIT: operand=0;++adr;                      n=sprintf(wpos,"         imp   \n");wpos+=n;total_size+=n;rel_adr+=1;break;
       case ACCUMULATE: operand=0;++adr;                    n=sprintf(wpos,"         acc   \n");wpos+=n;total_size+=n;rel_adr+=1;break;
-      case M__AbsYW: operand=data[++adr];hi=data[++adr];   n=sprintf(wpos,"  %02x %02x  abs YW\n",operand,hi);wpos+=n;total_size+=n;rel_adr+=3;break;
-      case M__AbsXW: operand=data[++adr];hi=data[++adr];   n=sprintf(wpos,"  %02x %02x  abs XW\n",operand,hi);wpos+=n;total_size+=n;rel_adr+=3;break;
-      case M__IndYW: operand=data[++adr];hi=data[++adr];   n=sprintf(wpos,"  %02x %02x  ind YW\n",operand,hi);wpos+=n;total_size+=n;rel_adr+=3;break;
+      case AbsYW: operand=data[++adr];hi=data[++adr];   n=sprintf(wpos,"  %02x %02x  abs YW\n",operand,hi);wpos+=n;total_size+=n;rel_adr+=3;break;
+      case AbsXW: operand=data[++adr];hi=data[++adr];   n=sprintf(wpos,"  %02x %02x  abs XW\n",operand,hi);wpos+=n;total_size+=n;rel_adr+=3;break;
+      case IndYW: operand=data[++adr];hi=data[++adr];   n=sprintf(wpos,"  %02x %02x  ind YW\n",operand,hi);wpos+=n;total_size+=n;rel_adr+=3;break;
       case NONE: ++adr;n=sprintf(wpos,"               \n");wpos+=n;total_size+=n;rel_adr+=1;break;
       default: ++adr;  n=sprintf(wpos,"ERROR          \n");wpos+=n;total_size+=n;rel_adr+=1;break;
   }
@@ -1482,14 +1482,14 @@ size_t CPU_disassemble(uint8_t *data, uint16_t size, char **out) {
   return total_size;
 }
 
-size_t CPU_disassemble_arr(uint8_t *data, uint16_t size, char ***out) {
+size_t CPU_disassemble_arr(uint8_t *data, uint32_t size, char ***out) {
   *out = (char**)malloc( size*sizeof(char*));
   if (out == NULL)
     return 0;
   char *wpos;
   size_t total_size = 0;
   uint8_t op;
-  for (uint16_t adr = 0; adr < size;++adr) {
+  for (uint32_t adr = 0; adr < size;++adr) {
     op = data[adr];
 
     uint8_t operand;
@@ -1512,9 +1512,9 @@ size_t CPU_disassemble_arr(uint8_t *data, uint16_t size, char ***out) {
       case RELATIVE: operand=data[1+adr];                  n=sprintf(wpos,"  %02x     rel   ",operand);wpos+=n;total_size+=n;break;
       case IMPLICIT: operand=0;                            n=sprintf(wpos,"         imp   ");wpos+=n;total_size+=n;break;
       case ACCUMULATE: operand=0;                          n=sprintf(wpos,"         acc   ");wpos+=n;total_size+=n;break;
-      case M__AbsYW: operand=data[1+adr];hi=data[2+adr];   n=sprintf(wpos,"  %02x %02x  abs YW",hi,operand);wpos+=n;total_size+=n;break;
-      case M__AbsXW: operand=data[1+adr];hi=data[2+adr];   n=sprintf(wpos,"  %02x %02x  abs XW",hi,operand);wpos+=n;total_size+=n;break;
-      case M__IndYW: operand=data[1+adr];hi=data[2+adr];   n=sprintf(wpos,"  %02x %02x  ind YW",hi,operand);wpos+=n;total_size+=n;break;
+      case AbsYW: operand=data[1+adr];hi=data[2+adr];   n=sprintf(wpos,"  %02x %02x  abs YW",hi,operand);wpos+=n;total_size+=n;break;
+      case AbsXW: operand=data[1+adr];hi=data[2+adr];   n=sprintf(wpos,"  %02x %02x  abs XW",hi,operand);wpos+=n;total_size+=n;break;
+      case IndYW: operand=data[1+adr];hi=data[2+adr];   n=sprintf(wpos,"  %02x %02x  ind YW",hi,operand);wpos+=n;total_size+=n;break;
       case NONE:       n=sprintf(wpos,"               ");wpos+=n;total_size+=n;break;
       default:         n=sprintf(wpos,"ERROR          ");wpos+=n;total_size+=n;break;
   }
