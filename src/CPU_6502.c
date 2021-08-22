@@ -223,8 +223,10 @@ uint8_t CPU_get_op(CPU_6502 *CPU) {
   return CPU_read_memory(CPU, CPU->state.PC);
 }
 
-void CPU_tick(CPU_6502 *cpu) {
+uint8_t CPU_tick(CPU_6502 *cpu) {
+  uint8_t new_instr=0;
   if (cpu->state.cycle_count == 0) {
+    new_instr=1;
     cpu->previous_state = cpu->state;
     cpu->state.page_cross = 0;
     cpu->state.branch_taken = 0;
@@ -255,7 +257,7 @@ void CPU_tick(CPU_6502 *cpu) {
   }
     cpu->state.cycles_accumulated++;
     if(cpu->state.cycle_count>0)cpu->state.cycle_count--;
-  
+  return new_instr;// return if a new instruction was executed
 }
 
 inline void CPU_exec_instruction(CPU_6502 *cpu, uint8_t op_code) {

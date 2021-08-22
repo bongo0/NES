@@ -67,7 +67,7 @@ uint8_t Mapper001_cpu_read(void *mapper_state, uint16_t adr,
   Mapper001 *state = (Mapper001 *)mapper_state;
   if (adr >= 0x6000 && adr <= 0x7fff) {
     // reading from ROMs RAM
-    (*data) = state->RAM[adr & 0x1fff];
+    (*data) = state->RAM[adr & 0x1fff];  // maybe this has garbage ??? zelda freeze
     return (MAP_TRUE | MAP_RAM);
   }
 
@@ -77,7 +77,7 @@ uint8_t Mapper001_cpu_read(void *mapper_state, uint16_t adr,
         (*mapped_adr) = state->PRG_bank_select16low * 0x4000 + (adr & 0x3fff);
         return MAP_TRUE;
       }
-      if (adr >= 0xC000) {
+      if (adr >= 0xC000 /* && adr <= 0xFFFF */) {
         (*mapped_adr) = state->PRG_bank_select16high * 0x4000 + (adr & 0x3FFF);
         return MAP_TRUE;
       }
@@ -259,7 +259,7 @@ uint8_t Mapper002_cpu_read(void *mapper_state, uint16_t adr,
     return MAP_TRUE;
   }
 
-  if (adr >= 0xC000) {
+  if (adr >= 0xC000 /* && adr<=0xffff */) {
     (*mapped_adr) = state->PRG_bank_select_high * 0x4000 + (adr & 0x3FFF);
     return MAP_TRUE;
   }
@@ -270,7 +270,7 @@ uint8_t Mapper002_cpu_read(void *mapper_state, uint16_t adr,
 uint8_t Mapper002_cpu_write(void *mapper_state, uint16_t adr,
                             uint32_t *mapped_adr, uint8_t *data) {
   Mapper002 *state = (Mapper002 *)mapper_state;
-  if (adr >= 0x8000) {
+  if (adr >= 0x8000 /* && adr<=0xffff */) {
     state->PRG_bank_select_low = (*data) & 0x0F;
   }
 

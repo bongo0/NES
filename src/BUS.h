@@ -34,6 +34,12 @@ typedef struct bus {
   // button	A	B	Select	Start	Up	Down	Left	Right
   uint8_t controller[2];
   uint64_t tick_counter;
+
+  // trace log func
+  // quite spaghetti - mamma mia 
+  void* trace_data;
+  void (*trace_log)(void*);
+
 } NES_BUS;
 
 void BUS_cpu_write(NES_BUS *nes, uint16_t adr, uint8_t data);

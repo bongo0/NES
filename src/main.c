@@ -10,6 +10,66 @@
 
 void example(GUI_context *gui_ctx) { overview(gui_ctx->nk_ctx); }
 
+#define TRACE_LOG_MAX_LINES 100000
+// quite spaghetti - mamma mia
+struct trace_func_data {
+  uint16_t last_PC;
+  uint32_t line_repeat;
+  int log_num;
+  int line_num;
+  char log_file[128];
+  char *rom_path;
+  FILE *trace_log_f;
+  NES_BUS *nes;
+  GUI_context *gui_ctx;
+  Disassembly6502 *dis_asm;
+};
+void trace_func(void *data) {
+  if (data == NULL)
+    return;
+  struct trace_func_data *d = (struct trace_func_data *)data;
+  if (d->line_num > TRACE_LOG_MAX_LINES)
+    d->gui_ctx->state.write_tracelog = 0;
+  NES_BUS *nes = d->nes;
+  // TRACE LOG
+  if (d->gui_ctx->state.write_tracelog) {
+    if (d->trace_log_f == NULL) {
+      snprintf(d->log_file, 128, "%s.%d.log", d->rom_path, d->log_num);
+      d->trace_log_f = fopen(d->log_file, "w");
+      d->log_num++;
+    }
+
+    if (d->last_PC != d->nes->cpu.state.PC) {
+      if(d->line_repeat!=0){
+        fprintf(d->trace_log_f,"^ * %u times\n",d->line_repeat);
+      }
+      d->line_repeat=0;
+      uint32_t mapped_adr = nes->cpu.state.PC;// set to PC if mapper does not map it
+      uint8_t dat;
+      uint8_t map_flag = nes->rom->mapper.cpu_read(
+          nes->rom->mapper.state, nes->cpu.state.PC, &mapped_adr, &dat);
+      fprintf(
+          d->trace_log_f,
+          "%04X  %s    A:%02X X:%02X Y:%02X P:%02X SP:%02X CYC:%3u SL:%d\n",
+          nes->cpu.state.PC, d->dis_asm->lines[mapped_adr], nes->cpu.state.A,
+          nes->cpu.state.X, nes->cpu.state.Y, nes->cpu.state.P,
+          nes->cpu.state.SP, nes->ppu.cycle,
+          nes->ppu.scan_line);
+      d->line_num++;
+    }else{
+     d->line_repeat++;
+    }
+    d->last_PC = d->nes->cpu.state.PC;
+
+  } else {
+    if (d->trace_log_f != NULL) {
+      fclose(d->trace_log_f);
+      d->trace_log_f = NULL;
+      d->line_num = 0;
+    }
+  }
+}
+
 int main(int argc, char **argv) {
 
   char *rom_path;
@@ -26,14 +86,24 @@ int main(int argc, char **argv) {
   BUS_init(&nes, &rom);
 
   Disassembly6502 dis_asm;
-  Disassemble(rom.PRG_p,rom.PRG_size,&dis_asm);
-  //char asm_file[128];
-  //snprintf(asm_file, 128, "%s.asm", rom_path);
-  //Disassembly6502_dump_to_file(&dis_asm,asm_file);
-  
+  Disassemble(rom.PRG_p, rom.PRG_size, &dis_asm);
 
   GUI_context gui_ctx;
   GUI_init(&gui_ctx, &nes);
+
+  // trace log stuff
+  struct trace_func_data d;
+  d.last_PC = 0;
+  d.line_num = 0;
+  d.log_num = 0;
+  d.line_repeat=0;
+  d.trace_log_f = NULL;
+  d.nes = &nes;
+  d.gui_ctx = &gui_ctx;
+  d.dis_asm = &dis_asm;
+  d.rom_path = rom_path;
+  nes.trace_data = &d;
+  nes.trace_log = &trace_func;
 
   struct nk_image pattern_table_img =
       GUI_image_rgba(&gui_ctx, nes.ppu.pattern_table_img, 128 * 2, 128);
@@ -104,7 +174,32 @@ int main(int argc, char **argv) {
     example(&gui_ctx);
     GUI_cpu_state(&gui_ctx, &nes);
     GUI_ppu_state(&gui_ctx, &nes.ppu);
-    GUI_asm_txt(&gui_ctx, &dis_asm, &nes); // this is broken -- needs mappers
+    if (gui_ctx.state.show_disasm)
+      GUI_asm_txt(&gui_ctx, &dis_asm, &nes);
+
+    /* // TRACE LOG
+    if (gui_ctx.state.write_tracelog && run) {
+      if (trace_log_f == NULL) {
+        snprintf(log_file, 128, "%s.%d.log", rom_path, log_num);
+        trace_log_f = fopen(log_file, "w");
+        log_num++;
+      }
+      uint32_t mapped_adr;
+      uint8_t dat;
+      uint8_t map_flag = nes.rom->mapper.cpu_read(
+          nes.rom->mapper.state, nes.cpu.state.PC, &mapped_adr, &dat);
+      fprintf(trace_log_f,
+              "%04X  %s    A:%02X X:%02X Y:%02X P:%02X SP:%02X CYC:%3lu
+    SL:%d\n", nes.cpu.state.PC, dis_asm.lines[mapped_adr], nes.cpu.state.A,
+              nes.cpu.state.X, nes.cpu.state.Y, nes.cpu.state.P,
+              nes.cpu.state.SP, nes.cpu.state.cycles_accumulated % 341,
+              nes.ppu.scan_line);
+    } else {
+      if (trace_log_f != NULL) {
+        fclose(trace_log_f);
+        trace_log_f = NULL;
+      }
+    } */
 
     if (gui_ctx.state.show_Pattern_table) {
       if (nk_begin(gui_ctx.nk_ctx, "pattern table",

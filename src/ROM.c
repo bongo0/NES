@@ -425,7 +425,7 @@ void ROM_free(NES_ROM *rom) {
 uint8_t ROM_cpu_read(NES_ROM *rom, uint16_t adr, uint8_t *data_out) {
   uint32_t map_adr = 0;
   uint8_t map_flag = 0;
-  if (rom->mapper.cpu_read(rom->mapper.state, adr, &map_adr, data_out)) {
+  if (map_flag = rom->mapper.cpu_read(rom->mapper.state, adr, &map_adr, data_out)) {
     if (map_flag & MAP_RAM) {
       // data has already been assigned by the mapper
       //printf("ROM_cpu_read MAP_RAM adr:%04X -> %04X data: %02X\n",adr,map_adr,*data_out);

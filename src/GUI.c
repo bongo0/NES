@@ -95,6 +95,9 @@ void GUI_init(GUI_context *ctx, NES_BUS *nes) {
     ctx->state.show_OAM_RAM = nk_false;
     ctx->state.show_OAS_RAM = nk_false;
     ctx->state.show_MAP_RAM = nk_false;
+    ctx->state.write_tracelog = nk_false;
+    ctx->state.show_disasm = nk_false;
+
 }
 
 int GUI_process_events(GUI_context *ctx) {
@@ -189,6 +192,15 @@ void GUI_menu_bar(GUI_context *gui_ctx) {
       }
       if (nk_menu_item_label(ctx, "About", NK_TEXT_LEFT)) {
       }
+      nk_menu_end(ctx);
+    }
+
+    if (nk_menu_begin_label(ctx, "DEBUG", NK_TEXT_LEFT, nk_vec2(120, 200))) {
+      nk_layout_row_dynamic(ctx, 25, 1);
+
+      nk_checkbox_label(ctx, "Disassembly", &gui_ctx->state.show_disasm);
+      nk_checkbox_label(ctx, "Trace log", &gui_ctx->state.write_tracelog);
+
       nk_menu_end(ctx);
     }
 

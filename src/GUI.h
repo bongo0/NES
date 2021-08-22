@@ -30,6 +30,9 @@ typedef struct {
   nk_bool show_MAP_RAM;
   //PPU
   nk_bool show_Pattern_table;
+  //Debug
+  nk_bool write_tracelog;
+  nk_bool show_disasm;
 
   NES_BUS *nes;
 }GUI_state;

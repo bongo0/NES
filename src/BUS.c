@@ -101,7 +101,8 @@ void BUS_tick(NES_BUS *nes) {
         }
       }
     } else {
-      CPU_tick(&nes->cpu);
+      uint8_t new_instr=CPU_tick(&nes->cpu);
+      if(nes->trace_log!=NULL && new_instr)nes->trace_log(nes->trace_data);
     }
   }
 

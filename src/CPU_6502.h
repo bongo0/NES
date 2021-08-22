@@ -121,7 +121,7 @@ void CPU_log_state_simple(CPU_6502 *cpu, FILE *fd, uint16_t last_pc,
 
 
 // things that probably does not need to be public
-void CPU_tick(CPU_6502 *CPU);
+uint8_t CPU_tick(CPU_6502 *CPU);
 void CPU_exec_instruction(CPU_6502 *CPU, uint8_t op_code);
 void CPU_load_to_memory(CPU_6502 *cpu, uint8_t *data, uint16_t size, uint16_t adr);
 uint8_t CPU_get_status_flag(CPU_6502 *cpu, uint8_t flag);
