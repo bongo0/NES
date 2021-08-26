@@ -63,6 +63,7 @@ void BUS_init(NES_BUS *nes, NES_ROM *rom) {
   CPU_init(&nes->cpu, nes); // dont reset cpu here
 
   APU_init(&nes->apu);
+  APU_reset(&nes->apu);
 }
 
 void BUS_reset(NES_BUS *nes) {

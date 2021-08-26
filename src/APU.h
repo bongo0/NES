@@ -9,8 +9,8 @@
 typedef float APUsample;
 
 typedef struct {
-  uint8_t period;
-  uint8_t clock;
+  uint16_t period;
+  uint16_t clock;
 } APU_divider;
 
 // void APU_divider_set(APU_divider *div, uint8_t val);
@@ -41,6 +41,8 @@ typedef struct {
   uint8_t gain;
   uint8_t decay_gain;
   APU_divider divider;
+
+  
 } APU_envelope;
 
 void APU_envelope_tick(APU_envelope *env);
@@ -63,7 +65,7 @@ static const uint8_t Length_counter_lookup[16 * 2] = {
     12, 16,  24, 18, 48, 20, 96, 22, 192, 24, 72, 26, 16, 28, 32, 30};
 
 typedef struct {
-  uint8_t enabled;
+  uint8_t enabled;//=0
   uint8_t halt;
   uint8_t new_halt;
 
@@ -99,10 +101,10 @@ void APU_sweep_init(APU_sweep *sw, uint8_t reg);
 //#############################################################
 static const uint8_t Square_duty_lookup[4][8] = {
     //  Output waveform               Duty
-    {0, 1, 0, 0, 0, 0, 0, 0}, //  0    (12.5%)
-    {0, 1, 1, 0, 0, 0, 0, 0}, //  1    (25%)
-    {0, 1, 1, 1, 1, 0, 0, 0}, //  2    (50%)
-    {1, 0, 0, 1, 1, 1, 1, 1},
+    {0, 0, 0, 0, 0, 0, 0, 1}, //  0    (12.5%)
+    {0, 0, 0, 0, 0, 0, 1, 1}, //  1    (25%)
+    {0, 0, 0, 0, 1, 1, 1, 1}, //  2    (50%)
+    {1, 1, 1, 1, 1, 1, 0, 0},
 }; //  3    (25% negated)
 
 #define SQR_CHANNEL_1 1
@@ -112,9 +114,8 @@ typedef struct {
 
   // sweep
   APU_sweep sweep;
-  uint8_t sweep_negate_mode;
-  uint32_t sweep_target_period;
-  uint16_t real_period;
+  uint8_t sweep_negate_mode; // = 0
+  uint32_t sweep_target_period;// = 0
 
   // controlls sound frequency
   // The triangle channel's timer is clocked on every CPU cycle, but the pulse,
@@ -130,11 +131,17 @@ typedef struct {
   uint32_t prev_cycle;//init = 0
   uint8_t last_output;// = 0
   uint16_t timer; // = 0
+  uint16_t real_period; // = 0
   uint16_t period;// = 0
 
 } APU_square_channel;
 
-void APU_square_channel_reset(APU_square_channel *sq);
+void    APU_square_channel_reset(APU_square_channel *sq);
+void    APU_square_channel_update_sweep(APU_square_channel *sq);// UpdateTargetPeriod
+void    APU_square_channel_set_period(APU_square_channel *sq, uint16_t period);
+void    APU_square_channel_tick(APU_square_channel *sq);
+uint8_t APU_square_channel_get_output(APU_square_channel *sq);
+
 //#############################################################
 // FRAME COUNTER STUFF
 //#############################################################
@@ -179,7 +186,6 @@ static const uint32_t Step_cycles_ntsc_table[2][6] = {
 typedef struct {
   int8_t write_delay_0x4017;
   uint8_t sequence_mode_delayed_val;
-  uint8_t new_write;
   // Frame counter
   uint8_t sequence_mode; //  0 selects 4-step sequence, 1 selects 5-step sequence
   uint8_t Frame_counter_IRQ_flag;
@@ -191,7 +197,8 @@ typedef struct {
 
   APU_square_channel sqr1, sqr2;
 
-  uint32_t previous_cycle;
+  int32_t previous_cycle;// = 0
+  uint32_t current_step; // = 0
   uint32_t current_cycle;
 
   // Audio output stuff
@@ -199,6 +206,8 @@ typedef struct {
   SDL_AudioCallback fill_audio_buffer;
   // the required sample output format
   SDL_AudioFormat format;
+
+  uint8_t block_frame_counter_tick;//=0
 
 #ifdef DEBUG_AUDIO
   FILE *sqr1_f;
@@ -215,12 +224,6 @@ typedef struct {
 void APU_cpu_write(APU *apu, uint16_t adr, uint8_t data, uint8_t during_apu_cycle);
 uint8_t APU_cpu_read(APU *apu, uint16_t adr);
 // void APU_square_channel_reset(APU_square_channel *sq);
-void APU_square_channel_update_sweep(APU_square_channel *sq);
-void APU_square_channel_set_period(APU_square_channel *sq, uint16_t period);
-void APU_square_channel_tick(APU_square_channel *sq);
-uint8_t APU_square_channel_get_output(APU_square_channel *sq);
-void APU_square_channel_tick_envelope(APU_square_channel *sq);
-void APU_square_channel_tick_len_counter(APU_square_channel *sq);
 
 void APU_fill_audio_buffer(void *apu, uint8_t *stream, int len);
 

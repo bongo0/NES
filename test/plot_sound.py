@@ -29,8 +29,8 @@ for fname in fnames:
 
 
 for i in range(0,len(fnames)):
-    p=0#29249
-    plt.plot(channels[i][p:10000+p],"-o",label= fnames[i])
+    p=0#29249           [p:10000+p] +0.1*i
+    plt.plot(channels[i] ,"-o",label= fnames[i])
 
 #plt.plot(offset_ch,"-o",label="offset ch")
 plt.legend()
