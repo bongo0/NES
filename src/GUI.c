@@ -11,6 +11,15 @@ struct nk_color RGBAu32_to_nk_color(uint32_t in) {
   return col;
 }
 
+struct nk_colorf RGBAu32_to_nk_colorf(uint32_t in) {
+  struct nk_colorf col;
+  col.a = (float)(in & 0xFF)/255;
+  col.b = (float)((in >> 8) & 0xFF)/255;
+  col.g = (float)((in >> 16) & 0xFF)/255;
+  col.r = (float)(nk_byte)((in >> 24) & 0xFF)/255;
+  return col;
+}
+
 static inline char byte_to_printable_ascii(uint8_t b){
   if(b>=0x20 && b<=0x7E)return b;
   else return '.';
@@ -60,32 +69,23 @@ void GUI_init(GUI_context *ctx, NES_BUS *nes) {
 
   {
     nk_sdl_font_stash_begin(&ctx->atlas);
-
-    /*struct nk_font *droid = nk_font_atlas_add_from_file(atlas,
-     * "../../../extra_font/DroidSans.ttf", 14, 0);*/
-    /*struct nk_font *roboto = nk_font_atlas_add_from_file(atlas,
-     * "../../../extra_font/Roboto-Regular.ttf", 16, 0);*/
-    /*struct nk_font *future = nk_font_atlas_add_from_file(atlas,
-     * "../../../extra_font/kenvector_future_thin.ttf", 13, 0);*/
-    /*struct nk_font *clean = nk_font_atlas_add_from_file(atlas,
-     * "../../../extra_font/ProggyClean.ttf", 12, 0);*/
-    /*struct nk_font *tiny = nk_font_atlas_add_from_file(atlas,
-     * "../../../extra_font/ProggyTiny.ttf", 10, 0);*/
-    /*struct nk_font *cousine = nk_font_atlas_add_from_file(atlas,
-     * "../../../extra_font/Cousine-Regular.ttf", 13, 0);*/
+    // FONT
+    /*int fs=19;
+    struct nk_font_config fc = nk_font_config(fs);
+     fc.oversample_h=1;
+     fc.oversample_v=1;
+     fc.pixel_snap=1;
+    struct nk_font *font = nk_font_atlas_add_from_file(ctx->atlas,
+     "~/NES.ttf", fs, &fc); */
 
     nk_sdl_font_stash_end();
-
-    /*nk_style_load_all_cursors(ctx, atlas->cursors);*/
-    /*nk_style_set_font(ctx, &roboto->handle);*/}
+    //nk_style_set_font(ctx->nk_ctx, &font->handle);
+  }
 
     // nuklear style stuff
     ctx->nk_ctx->style.button.rounding = 0;
 
-    ctx->bg.r = 0.10f;
-    ctx->bg.g = 0.18f;
-    ctx->bg.b = 0.24f;
-    ctx->bg.a = 1.0f;
+  ctx->bg = RGBAu32_to_nk_colorf(STYLE_DARK_GREY);
 
     // GUI state
     ctx->state.nes = nes;
@@ -376,9 +376,7 @@ const int h=ctx->style.font->height+3;
 if (nk_begin(ctx, "asm",
                nk_rect(0,gui_ctx->win_height/2-60,600,470),
               NK_WINDOW_TITLE | NK_WINDOW_MOVABLE|NK_WINDOW_SCALABLE)) {
-//struct nk_rect b={0,0,56*8,h};
-//nk_layout_space_begin(ctx,NK_STATIC,h,21);
-//nk_layout_space_push()
+
 CPU_state state=nes->cpu.state;
 uint32_t mapped_adr;
 uint8_t dat;
@@ -402,7 +400,7 @@ for (int i = 9; i >= 0; --i) {
 }
 // get constant number of lines after PC
 snprintf(line,len,"%04X<-%04X  %s",mapped_adr,state.PC, dasm->lines[mapped_adr]);
-nk_label_colored(ctx, line, NK_TEXT_LEFT,nk_rgb(255, 255, 0));
+nk_label_colored(ctx, line, NK_TEXT_LEFT, RGBAu32_to_nk_color(STYLE_YELLOW));
 for (int lines = 0, i = 1; lines < 10; ++i) {
       uint32_t adr = (mapped_adr + i);
       if(adr>dasm->size)adr=0;

@@ -109,7 +109,7 @@ void ROM_load_from_disc(char *file_name, NES_ROM *rom) {
   if (!f) {
     rom->data = NULL;
     rom->size = 0;
-    LOG_ERROR("cannot open file %s\n", file_name);
+    LOG_ERROR("[ROM] cannot open file %s\n", file_name);
     return;
   }
 
@@ -117,7 +117,7 @@ void ROM_load_from_disc(char *file_name, NES_ROM *rom) {
   if (end == -1) {
     rom->data = NULL;
     rom->size = 0;
-    LOG_ERROR("cannot read file %s\n", file_name);
+    LOG_ERROR("[ROM] cannot read file %s\n", file_name);
     fclose(f);
     return;
   }
@@ -125,7 +125,7 @@ void ROM_load_from_disc(char *file_name, NES_ROM *rom) {
   if (size == -1) {
     rom->data = NULL;
     rom->size = 0;
-    LOG_ERROR("cannot read file %s\n", file_name);
+    LOG_ERROR("[ROM] cannot read file %s\n", file_name);
     fclose(f);
     return;
   }
@@ -133,7 +133,7 @@ void ROM_load_from_disc(char *file_name, NES_ROM *rom) {
   if (fseek_set_value == -1) {
     rom->data = NULL;
     rom->size = 0;
-    LOG_ERROR("cannot read file %s\n", file_name);
+    LOG_ERROR("[ROM] cannot read file %s\n", file_name);
     fclose(f);
     return;
   }
@@ -142,7 +142,7 @@ void ROM_load_from_disc(char *file_name, NES_ROM *rom) {
   if (rom->data == NULL) {
     rom->data = NULL;
     rom->size = 0;
-    LOG_ERROR("cannot allocate %lu bytes for ROM %s\n", size, file_name);
+    LOG_ERROR("[ROM] cannot allocate %lu bytes for ROM %s\n", size, file_name);
     fclose(f);
     return;
   }
@@ -154,7 +154,7 @@ void ROM_load_from_disc(char *file_name, NES_ROM *rom) {
     free(rom->data);
     rom->data = NULL;
     rom->size = 0;
-    LOG_ERROR("cannot read file %s\n", file_name);
+    LOG_ERROR("[ROM] cannot read file %s\n", file_name);
     return;
   }
 
@@ -162,7 +162,7 @@ void ROM_load_from_disc(char *file_name, NES_ROM *rom) {
     free(rom->data);
     rom->data = NULL;
     rom->size = 0;
-    LOG_ERROR("Not a .NES file %s\n", file_name);
+    LOG_ERROR("[ROM] Not a .NES file %s\n", file_name);
     return;
   }
   if ((rom->data[7] & 0x0c) == 0x08)
@@ -227,7 +227,7 @@ void ROM_load_from_disc(char *file_name, NES_ROM *rom) {
       case 1: rom->system_type = VS_SYSTEM; break;
       case 2: rom->system_type = PLAY_CHOISE; break;
       default:
-        LOG_WARNING("Unknown system type, using NTSC: %s\n", file_name);
+        LOG_WARNING("[ROM] Unknown system type, using NTSC: %s\n", file_name);
         rom->system_type = NTSC;
         break;
       }
@@ -274,7 +274,7 @@ void ROM_load_from_disc(char *file_name, NES_ROM *rom) {
     if ((rom->data[13] >> 4) <= 0x06) {
       rom->vs_type = rom->data[13] >> 4;
     } else {
-      LOG_WARNING("Unknown NES2.0 VS type %02x, setting to default\n",
+      LOG_WARNING("[ROM] Unknown NES2.0 VS type %02x, setting to default\n",
                   rom->data[13] >> 4);
       rom->vs_type = VS_DEFAULT;
     }
@@ -287,7 +287,7 @@ void ROM_load_from_disc(char *file_name, NES_ROM *rom) {
     switch (rom->data[13] & 0x0f) {
     case 0: rom->ppu_model = PPU_2C03; break;
     case 1:
-      LOG_WARNING("Unsupported PPU model 2C03: %s\n", file_name);
+      LOG_WARNING("[ROM] Unsupported PPU model 2C03: %s\n", file_name);
       rom->ppu_model = PPU_2C03;
       break;
     case 2: rom->ppu_model = PPU_2C04A; break;
@@ -302,7 +302,7 @@ void ROM_load_from_disc(char *file_name, NES_ROM *rom) {
     case 11: rom->ppu_model = PPU_2C05D; break;
     case 12: rom->ppu_model = PPU_2C05E; break;
     default:
-      LOG_WARNING("Unsupported PPU model %02x\n", rom->data[13] & 0x0f);
+      LOG_WARNING("[ROM] Unsupported PPU model %02x\n", rom->data[13] & 0x0f);
       break;
     }
   } else {
@@ -344,7 +344,7 @@ void ROM_load_from_disc(char *file_name, NES_ROM *rom) {
   if ((rom->PRG_size + rom->CHR_size + (rom->has_trainer ? 512 : 0)) +
           NES_ROM_HEADER_SIZE >
       (size_t)size) {
-    LOG_WARNING("corrupted ROM file, larger than header tells: %s\n",
+    LOG_WARNING("[ROM] corrupted ROM file, larger than header tells: %s\n",
                 file_name);
     // free(rom->data);
     // rom->size = 0;
@@ -353,7 +353,7 @@ void ROM_load_from_disc(char *file_name, NES_ROM *rom) {
   } else if ((rom->PRG_size + rom->CHR_size + (rom->has_trainer ? 512 : 0)) +
                  NES_ROM_HEADER_SIZE <
              (size_t)size) {
-    LOG_WARNING("corrupted ROM file, smaller than header tells: %s\n",
+    LOG_WARNING("[ROM] corrupted ROM file, smaller than header tells: %s\n",
                 file_name);
     // free(rom->data);
     // rom->size = 0;
@@ -373,7 +373,7 @@ void ROM_load_from_disc(char *file_name, NES_ROM *rom) {
 
   // logging stuff
   LOG_SUCCESS(
-      "loaded ROM ver %s %s\n"
+      "[ROM]loaded ROM ver %s %s\n"
       "\ttotal %lu bytes\n"
       "\tPRG: %lu\n"
       "\tCHR: %lu\n"
@@ -400,7 +400,7 @@ void ROM_load_from_disc(char *file_name, NES_ROM *rom) {
       rom->chr_ram_size, rom->save_chr_ram_size);
 
   if (!ROM_init_mapper(rom)) {
-    LOG_ERROR("ROM mapper not implemented. Mapper id: %d\n", rom->mapper_id);
+    LOG_ERROR("[ROM] Mapper not implemented. Mapper id: %d\n", rom->mapper_id);
     exit(EXIT_FAILURE); // TODO handle error better
   }
 }
@@ -425,7 +425,7 @@ void ROM_free(NES_ROM *rom) {
 uint8_t ROM_cpu_read(NES_ROM *rom, uint16_t adr, uint8_t *data_out) {
   uint32_t map_adr = 0;
   uint8_t map_flag = 0;
-  if (map_flag = rom->mapper.cpu_read(rom->mapper.state, adr, &map_adr, data_out)) {
+  if ( (map_flag = rom->mapper.cpu_read(rom->mapper.state, adr, &map_adr, data_out))) {
     if (map_flag & MAP_RAM) {
       // data has already been assigned by the mapper
       //printf("ROM_cpu_read MAP_RAM adr:%04X -> %04X data: %02X\n",adr,map_adr,*data_out);

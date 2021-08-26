@@ -4,7 +4,7 @@
 #include "CPU_6502.h"
 #include "PPU.h"
 #include "ROM.h"
-
+#include "APU.h"
 #include <stdint.h>
 
 #if 1
@@ -15,21 +15,24 @@
 
 typedef struct bus {
   CPU_6502 cpu;
+  // CPU RAM
+  uint8_t ram[CPU_RAM_SIZE];
+  
+  APU apu;
 
   PPU ppu;
+  // PPU direct memory access helpers
   uint8_t dma_page_adr;
   uint8_t dma_adr;
   uint8_t dma_data;
   uint8_t dma_transfer;
   uint8_t dma_sync;
-
+  
   NES_ROM *rom;
-  // CPU RAM
-  uint8_t ram[CPU_RAM_SIZE];
+
   // shift registers representing the controller state
   uint8_t controller_state[2]; // internal
   // controller state for interfacing
-
   // bit    7 6 5       4     3   2     1     0
   // button	A	B	Select	Start	Up	Down	Left	Right
   uint8_t controller[2];

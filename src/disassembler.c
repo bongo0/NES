@@ -268,7 +268,7 @@ char * Dissassemble_at(size_t adr,uint8_t *data, size_t size, uint8_t verbose){
     uint8_t hi;
 
     if(adr>=size){
-        snprintf(out,DISASM_LINE_LEN,"Adr out of range adr:%lu>=%lu\n",adr, size);
+        snprintf(out,DISASM_LINE_LEN,"[DISASSEMBLER] Adr out of range adr:%lu>=%lu\n",adr, size);
         return out;
     }
 
@@ -295,7 +295,7 @@ case AbsXW:     snprintf(out,DISASM_LINE_LEN,"%s  "  "$%02X%02X,X"  "  ;ABS_XW  
 case IndYW:     snprintf(out,DISASM_LINE_LEN,"%s  "  "($%02X),Y"    "  ;IND_YW     (0x%02X) %s",CPU_op_names[op]   ,operand, op, Instruction_info_table[op]);break;
 case NONE:      snprintf(out,DISASM_LINE_LEN,"%s  "  "       "      "  ;NONE       (0x%02X) %s",CPU_op_names[op],            op, Instruction_info_table[op]);break;
       
-      default:snprintf(out,DISASM_LINE_LEN,"THIS CANNOT HAPPEN WTF\n");break;
+      default:LOG_ERROR("[DISASSEMBLER] THIS CANNOT HAPPEN\n");break;
   }
   return out;
 }
@@ -318,7 +318,7 @@ uint8_t Disassembly6502_dump_to_file(Disassembly6502 *d, char *file_name){
   FILE *asm_file;
   asm_file = fopen(file_name, "w");
   if (asm_file == NULL) {
-    LOG_ERROR("Disassembly6502: could not open %s for writing\n", file_name);
+    LOG_ERROR("[DISASSEMBLER] Disassembly6502: could not open %s for writing\n", file_name);
     return 0;
   }
 
@@ -326,7 +326,7 @@ uint8_t Disassembly6502_dump_to_file(Disassembly6502 *d, char *file_name){
       fprintf(asm_file, "%04lX   %s\n", i, d->lines[i]);
   }
   fclose(asm_file);
-  LOG("Disassembly6502: dumped %s\n",file_name);
+  LOG("[DISASSEMBLER] Disassembly6502: dumped %s\n",file_name);
   return 1;
 }
 

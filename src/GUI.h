@@ -17,25 +17,32 @@
 
 struct nk_color RGBAu32_to_nk_color(uint32_t in);
 
+#define STYLE_DARK_GREY 0x1e1b1cFF  // - dark grey
+#define STYLE_GREY 0x544f4cFF       // - grey
+#define STYLE_LIGHT_GREY 0xc2bebbFF // - light grey
+#define STYLE_RED 0xb23323FF        // - red
+#define STYLE_YELLOW 0xd9b128FF     // - yellow
+#define STYLE_BLUE 0x193549FF       // - blue
+
 typedef struct {
-  size_t x,y;
+  size_t x, y;
 } pair_size_t;
 
 typedef struct {
-  //RAM
+  // RAM
   nk_bool show_CPU_RAM;
   nk_bool show_NAM_RAM;
   nk_bool show_OAM_RAM;
   nk_bool show_OAS_RAM;
   nk_bool show_MAP_RAM;
-  //PPU
+  // PPU
   nk_bool show_Pattern_table;
-  //Debug
+  // Debug
   nk_bool write_tracelog;
   nk_bool show_disasm;
 
   NES_BUS *nes;
-}GUI_state;
+} GUI_state;
 
 // Global state
 typedef struct {
@@ -60,16 +67,18 @@ void GUI_quit(GUI_context *ctx);
 void GUI_menu_bar(GUI_context *ctx);
 void GUI_cpu_state(GUI_context *gui_ctx, NES_BUS *nes);
 void GUI_ppu_state(GUI_context *gctx, const PPU *ppu);
-void GUI_asm_txt(GUI_context *gui_ctx, Disassembly6502 *dasm,NES_BUS *nes);
+void GUI_asm_txt(GUI_context *gui_ctx, Disassembly6502 *dasm, NES_BUS *nes);
 void GUI_memory(GUI_context *gui_ctx);
 
 void GUI_draw_image(int x, int y, int width, int height, GLuint texture_id,
                     uint8_t blendFlag);
 
-nk_bool GUI_color_txt_button(GUI_context *ctx, uint32_t rgba, const char *txt, nk_flags txt_align);
+nk_bool GUI_color_txt_button(GUI_context *ctx, uint32_t rgba, const char *txt,
+                             nk_flags txt_align);
 uint16_t GUI_palette_table(GUI_context *ctx);
 
-uint16_t GUI_memory_view(GUI_context *gctx, uint8_t *memory, size_t nbytes, pair_size_t interesting_range, size_t interesting_pos);
+uint16_t GUI_memory_view(GUI_context *gctx, uint8_t *memory, size_t nbytes,
+                         pair_size_t interesting_range, size_t interesting_pos);
 uint16_t GUI_cpu_ram_view(GUI_context *gctx, NES_BUS *nes);
 
 void GUI_palette_view(GUI_context *gctx, NES_BUS *nes);

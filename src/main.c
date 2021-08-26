@@ -5,6 +5,7 @@
 #include "GUI.h"
 #include "../deps/Nuklear/example.h" // must be after GUI.h
 #include "disassembler.h"
+#include "audio.h"
 #include <stdio.h>
 // clang-format on
 
@@ -79,6 +80,13 @@ int main(int argc, char **argv) {
     printf("input: [rom path]\n");
     exit(1);
   }
+
+//testing
+  APU apu;
+  Audio_context a_ctx;
+  Audio_init(&a_ctx,44100,2048,&apu);
+//-------
+
   NES_ROM rom;
   ROM_load_from_disc(rom_path, &rom);
 
@@ -285,6 +293,7 @@ int main(int argc, char **argv) {
   }
 
   GUI_quit(&gui_ctx);
+  Audio_quit();
   ROM_free(&rom);
   return EXIT_SUCCESS;
 }
