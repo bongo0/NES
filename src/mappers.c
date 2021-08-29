@@ -67,7 +67,7 @@ uint8_t Mapper001_cpu_read(void *mapper_state, uint16_t adr,
   Mapper001 *state = (Mapper001 *)mapper_state;
   if (adr >= 0x6000 && adr <= 0x7fff) {
     // reading from ROMs RAM
-    (*data) = state->RAM[adr & 0x1fff];  // maybe this has garbage ??? zelda freeze
+    (*data) = state->RAM[adr & 0x1fff];
     return (MAP_TRUE | MAP_RAM);
   }
 

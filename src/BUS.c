@@ -63,7 +63,7 @@ void BUS_init(NES_BUS *nes, NES_ROM *rom) {
   CPU_init(&nes->cpu, nes); // dont reset cpu here
 
   APU_init(&nes->apu);
-  APU_reset(&nes->apu);
+  APU_reset(&nes->apu, 0);
 }
 
 void BUS_reset(NES_BUS *nes) {
@@ -77,6 +77,8 @@ void BUS_reset(NES_BUS *nes) {
   ROM_reset_mapper(nes->rom);
 
   CPU_reset(&nes->cpu);
+
+  APU_reset(&nes->apu, 1);
 }
 
 void BUS_tick(NES_BUS *nes) {
@@ -106,20 +108,26 @@ void BUS_tick(NES_BUS *nes) {
       }
     } else {
       uint8_t new_instr = CPU_tick(&nes->cpu);
+      
       if (nes->trace_log != NULL && new_instr)
         nes->trace_log(nes->trace_data);
       // APU ticks every 2 CPU cycles, but this method handles it internally
-      APU_frame_counter_tick(&nes->apu);
+  // PPU emit interupt
+      //APU_tick(&nes->apu);
+      /* if(&nes->apu.Frame_counter_IRQ_flag || &nes->apu.DMC_IRQ_flag){
+        //CPU_IRQ(&nes->cpu);
+        nes->cpu.state.need_IRQ=1;
+      } */
+    
     }
 
 
   }
 
-  // PPU emit interupt
   if (nes->ppu.state.nmi) {
-    nes->ppu.state.nmi = 0;
-    CPU_NMI(&nes->cpu);
-  }
+        nes->ppu.state.nmi = 0;
+        CPU_NMI(&nes->cpu);
+      }
   nes->tick_counter++;
 }
 

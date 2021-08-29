@@ -72,8 +72,14 @@ typedef struct {
   uint8_t op;
   uint8_t last_op;
 
-  uint8_t need_nmi;
-  uint8_t last_need_nmi;
+  uint8_t NMI_input[2];
+  uint8_t need_NMI;
+  uint8_t prev_need_NMI;
+
+  uint8_t IRQ_input;
+  uint8_t need_IRQ;
+  uint8_t prev_need_IRQ;
+  uint8_t IRQ_poll_before;
 } CPU_state;
 
 // maybe make this opaque type
@@ -126,7 +132,10 @@ void CPU_exec_instruction(CPU_6502 *CPU, uint8_t op_code);
 void CPU_load_to_memory(CPU_6502 *cpu, uint8_t *data, uint16_t size, uint16_t adr);
 uint8_t CPU_get_status_flag(CPU_6502 *cpu, uint8_t flag);
 CPU_state CPU_get_state(CPU_6502 *CPU);
+void CPU_emit_IRQ(CPU_6502 *cpu, uint8_t irq);
+void CPU_emit_NMI(CPU_6502 *cpu, uint8_t nmi);
 void CPU_NMI(CPU_6502 *cpu);
+void CPU_IRQ(CPU_6502 *cpu);
 opcode_func_t CPU_op_table[256];
 CPU_addr_mode CPU_addr_mode_table[256];
 

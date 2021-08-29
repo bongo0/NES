@@ -138,7 +138,7 @@ void PPU_cpu_write(PPU *ppu, uint16_t adr, uint8_t data) {
     break;
   case 0x0004: // OAM Data
     ppu->OAM[ppu->OAM_adr] = data;
-    ppu->OAM_adr++;
+    //ppu->OAM_adr++; ??
     break;
   case 0x0005:                             // Scroll
     if (ppu->state.adr_write_latch == 0) { // flip flops between x/y

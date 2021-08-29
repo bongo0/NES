@@ -26,6 +26,15 @@ CPU_6502 *CPU_init(CPU_6502 *cpu, NES_BUS *bus) {
   cpu->state.operand = 0;
   cpu->state.cycles_accumulated = 0;
 
+  cpu->state.NMI_input[0]=0;
+  cpu->state.NMI_input[1]=0;
+  cpu->state.need_NMI=0;
+  cpu->state.prev_need_NMI=0;
+
+  cpu->state.IRQ_input=0;
+  cpu->state.need_IRQ = 0;
+  cpu->state.prev_need_IRQ = 0;
+
   cpu->bus = bus;
 
   // hardcoded address where to read the PC and continue exec after reset
@@ -37,10 +46,10 @@ CPU_6502 *CPU_init(CPU_6502 *cpu, NES_BUS *bus) {
 
 void CPU_reset(CPU_6502 *cpu) {
   // un changed on reset
-  //cpu->state.A = 0;
-  //cpu->state.X = 0;
-  //cpu->state.Y = 0;
-  cpu->state.SP -=3;
+  // cpu->state.A = 0;
+  // cpu->state.X = 0;
+  // cpu->state.Y = 0;
+  cpu->state.SP -= 3;
   cpu->state.P |= CPU_STATUS_INTERUPT_DISABLE;
 
   cpu->state.operand = 0;
@@ -224,9 +233,10 @@ uint8_t CPU_get_op(CPU_6502 *CPU) {
 }
 
 uint8_t CPU_tick(CPU_6502 *cpu) {
-  uint8_t new_instr=0;
-  if (cpu->state.cycle_count == 0) {
-    new_instr=1;
+  uint8_t new_instr = 0; // for trace log
+
+  if (cpu->state.cycle_count == 0) {// start of new instruction
+    new_instr = 1;
     cpu->previous_state = cpu->state;
     cpu->state.page_cross = 0;
     cpu->state.branch_taken = 0;
@@ -234,34 +244,48 @@ uint8_t CPU_tick(CPU_6502 *cpu) {
 #ifdef NESTEST_LOG_COMP
     uint16_t last_PC = cpu->state.PC; // for debugging
 #endif
-    
+
     cpu->state.op = CPU_get_op(cpu);
-    cpu->state.last_op = cpu->state.op;// for debugging
+    cpu->state.last_op = cpu->state.op; // for debugging
     cpu->state.operand = CPU_get_operand(cpu);
     cpu->state.PC++;
-    //CPU_exec_instruction(cpu, op);
     CPU_op_table[cpu->state.op](cpu, CPU_addr_mode_table[cpu->state.op]);
 
     // cycles
     CPU_op_cycles_t ct = CPU_op_cycles_table[cpu->state.op];
     cpu->state.cycle_count += (ct.cycles);
-    //if( (CPU_addr_mode_table[op]==IMPLICIT) &&  cpu->state.cycle_count>0)cpu->state.cycle_count--;
     if (ct.cross && cpu->state.page_cross)
       cpu->state.cycle_count++;
     if (cpu->state.branch_taken)
       cpu->state.cycle_count++;
-//if(op==0x00)printf("%d cycle count %ld   öö branch %d cross %d\n",CPU_addr_mode_table[op],cpu->state.cycle_count, cpu->state.branch_taken,ct.cross);
+
 #ifdef NESTEST_LOG_COMP
     CPU_log_state_simple(cpu, mycpu_log, last_PC, cpu->state.op);
 #endif
+  }else{
+    cpu->state.cycle_count--;
   }
-    cpu->state.cycles_accumulated++;
-    if(cpu->state.cycle_count>0)cpu->state.cycle_count--;
-  return new_instr;// return if a new instruction was executed
+
+  // end of instruction UGLY
+   if(cpu->state.cycle_count == 0){
+
+   if(cpu->state.prev_need_IRQ && cpu->state.last_op !=0x40){
+     CPU_IRQ(cpu);
+   } else if(cpu->state.last_op == 0x40 && cpu->state.prev_need_IRQ){
+     
+   }
+   cpu->state.prev_need_IRQ = cpu->state.need_IRQ && !CPU_get_status_flag(cpu,CPU_STATUS_INTERUPT_DISABLE);
+   //cpu->state.need_IRQ=0;   
+  }
+
+  // end of a cycle
+  
+  cpu->state.cycles_accumulated++;
+  return new_instr; // return if a new instruction was executed, for trace log
 }
 
 inline void CPU_exec_instruction(CPU_6502 *cpu, uint8_t op_code) {
-    CPU_op_table[op_code](cpu, CPU_addr_mode_table[op_code]);
+  CPU_op_table[op_code](cpu, CPU_addr_mode_table[op_code]);
 }
 
 //#v	Immediate	Uses the 8-bit operand itself as the value for the
@@ -446,7 +470,9 @@ void CPU_branch_relative(CPU_6502 *cpu, uint8_t b) {
     // +1 cycle on branches taken
     cpu->state.branch_taken = 1;
     // TODO irq stuff
-    //if(cpu->state.need_nmi && !cpu->state.last_need_nmi)cpu->state.need_nmi=0;
+    if(cpu->state.need_IRQ && !cpu->state.prev_need_IRQ){
+      cpu->state.need_IRQ=0;
+    }
     // page cross ...
     cpu->state.page_cross = is_page_crossed_signed(cpu->state.PC, jmp_offset);
 
@@ -466,8 +492,9 @@ void CPU_set_register(CPU_6502 *cpu, uint8_t *reg, uint8_t val) {
 
 //######################################################
 //    INTERUPTS
-void IRQ(CPU_6502 *cpu) {
-  if (!CPU_get_status_flag(cpu, CPU_STATUS_INTERUPT_DISABLE)) {
+
+void CPU_IRQ(CPU_6502 *cpu) {
+  //if (!CPU_get_status_flag(cpu, CPU_STATUS_INTERUPT_DISABLE)) {
     CPU_stack_push(cpu, (uint8_t)(cpu->state.PC >> 8));
     CPU_stack_push(cpu, (uint8_t)cpu->state.PC);
 
@@ -475,11 +502,11 @@ void IRQ(CPU_6502 *cpu) {
     CPU_set_status_flags(cpu, CPU_STATUS_INTERUPT_DISABLE);
 
     uint8_t low = CPU_read_memory(cpu, CPU_IRQ_VECTOR);
-    uint8_t high = CPU_read_memory(cpu, CPU_IRQ_VECTOR+1);
+    uint8_t high = CPU_read_memory(cpu, CPU_IRQ_VECTOR + 1);
     cpu->state.PC = low | (high << 8);
-  }
 
-  cpu->state.cycle_count = 7;
+    cpu->state.cycle_count = 7;
+  //}
 }
 
 void CPU_NMI(CPU_6502 *cpu) {
@@ -491,7 +518,7 @@ void CPU_NMI(CPU_6502 *cpu) {
   CPU_set_status_flags(cpu, CPU_STATUS_INTERUPT_DISABLE);
 
   uint8_t low = CPU_read_memory(cpu, CPU_NMI_VECTOR);
-  uint8_t high = CPU_read_memory(cpu, CPU_NMI_VECTOR+1);
+  uint8_t high = CPU_read_memory(cpu, CPU_NMI_VECTOR + 1);
   cpu->state.PC = low | (high << 8);
 
   cpu->state.cycle_count = 8;
@@ -841,7 +868,7 @@ void *RTS(CPU_6502 *cpu, CPU_addr_mode mode) {
   uint8_t high = CPU_stack_pop(cpu);
   uint16_t adr = low | (high << 8);
 
-  CPU_get_op(cpu);//Dummy read
+  CPU_get_op(cpu); // Dummy read
 
   cpu->state.PC = adr + 1;
   return "RTS";
@@ -849,14 +876,14 @@ void *RTS(CPU_6502 *cpu, CPU_addr_mode mode) {
 
 void *RTI(CPU_6502 *cpu, CPU_addr_mode mode) {
 
-  cpu->state.P = CPU_stack_pop(cpu);
-  cpu->state.P |= CPU_STATUS_RESERVED; // for nestest.log comparison
+  cpu->state.P = CPU_stack_pop(cpu) & 0xCF;
+  //cpu->state.P |= CPU_STATUS_RESERVED; // for nestest.log comparison
 
   uint8_t low = CPU_stack_pop(cpu);
   uint8_t high = CPU_stack_pop(cpu);
   uint16_t adr = low | (high << 8);
 
-  CPU_get_op(cpu);//Dummy read
+  CPU_get_op(cpu); // Dummy read
 
   cpu->state.PC = adr;
   return "RTI";
@@ -1020,7 +1047,7 @@ void *ISB(CPU_6502 *cpu, CPU_addr_mode mode) {
 
 void *AAC(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_set_register(cpu, &cpu->state.A,
-                   cpu->state.A &  CPU_get_operand_val(cpu,mode) );
+                   cpu->state.A & CPU_get_operand_val(cpu, mode));
   CPU_clear_status_flags(cpu, CPU_STATUS_CARRY);
   if (CPU_get_status_flag(cpu, CPU_STATUS_NEGATIVE))
     CPU_set_status_flags(cpu, CPU_STATUS_CARRY);
@@ -1030,7 +1057,7 @@ void *AAC(CPU_6502 *cpu, CPU_addr_mode mode) {
 void *ASR(CPU_6502 *cpu, CPU_addr_mode mode) {
   CPU_clear_status_flags(cpu, CPU_STATUS_CARRY);
   CPU_set_register(cpu, &cpu->state.A,
-                   cpu->state.A & CPU_get_operand_val(cpu,mode) );
+                   cpu->state.A & CPU_get_operand_val(cpu, mode));
   if (cpu->state.A & 1)
     CPU_set_status_flags(cpu, CPU_STATUS_CARRY);
   CPU_set_register(cpu, &cpu->state.A, cpu->state.A >> 1);
@@ -1039,10 +1066,9 @@ void *ASR(CPU_6502 *cpu, CPU_addr_mode mode) {
 
 void *ARR(CPU_6502 *cpu, CPU_addr_mode mode) {
 
-  CPU_set_register(
-      cpu, &cpu->state.A,
-      ((cpu->state.A & CPU_get_operand_val(cpu,mode)) >> 1) |
-          (CPU_get_status_flag(cpu, CPU_STATUS_CARRY) ? 0x80 : 0));
+  CPU_set_register(cpu, &cpu->state.A,
+                   ((cpu->state.A & CPU_get_operand_val(cpu, mode)) >> 1) |
+                       (CPU_get_status_flag(cpu, CPU_STATUS_CARRY) ? 0x80 : 0));
 
   CPU_clear_status_flags(cpu, CPU_STATUS_CARRY | CPU_STATUS_OVERFLOW);
   if (cpu->state.A & 0x40)
@@ -1054,7 +1080,8 @@ void *ARR(CPU_6502 *cpu, CPU_addr_mode mode) {
 }
 
 void *ATX(CPU_6502 *cpu, CPU_addr_mode mode) {
-  uint8_t val = CPU_get_operand_val(cpu,mode);//CPU_read_memory(cpu, cpu->state.operand);
+  uint8_t val = CPU_get_operand_val(
+      cpu, mode); // CPU_read_memory(cpu, cpu->state.operand);
   CPU_set_register(cpu, &cpu->state.A, val);
   CPU_set_register(cpu, &cpu->state.X, cpu->state.A);
   CPU_set_register(cpu, &cpu->state.A, cpu->state.A);
@@ -1063,7 +1090,8 @@ void *ATX(CPU_6502 *cpu, CPU_addr_mode mode) {
 }
 
 void *AXS(CPU_6502 *cpu, CPU_addr_mode mode) {
-  uint8_t val = CPU_get_operand_val(cpu,mode);//CPU_read_memory(cpu, cpu->state.operand);
+  uint8_t val = CPU_get_operand_val(
+      cpu, mode); // CPU_read_memory(cpu, cpu->state.operand);
   uint8_t ax = (cpu->state.A & cpu->state.X) - val;
 
   CPU_clear_status_flags(cpu, CPU_STATUS_CARRY);
@@ -1290,8 +1318,8 @@ void *BRK(CPU_6502 *cpu, CPU_addr_mode mode) {
 
   uint8_t flag = cpu->state.P | CPU_STATUS_BREAK | CPU_STATUS_RESERVED;
 
-  if (cpu->state.need_nmi) {
-    cpu->state.need_nmi = 0;
+  if (cpu->state.need_NMI) {
+    cpu->state.need_NMI = 0;
     CPU_stack_push(cpu, flag);
     CPU_set_status_flags(cpu, CPU_STATUS_INTERUPT_DISABLE);
     uint8_t low = CPU_read_memory(cpu, CPU_NMI_VECTOR);
@@ -1305,8 +1333,8 @@ void *BRK(CPU_6502 *cpu, CPU_addr_mode mode) {
     cpu->state.PC = low | (high << 8);
   }
 
-  CPU_read_memory(cpu, cpu->state.PC+1);// Dummy read -- Maybe not here??
-  cpu->state.last_need_nmi = 0; // weird stuff ??
+  CPU_read_memory(cpu, cpu->state.PC + 1); // Dummy read -- Maybe not here??
+  cpu->state.prev_need_NMI = 0;            // weird stuff ??
   return "BRK";
 }
 
@@ -1371,46 +1399,7 @@ CPU_op_cycles_t CPU_op_cycles_table[] ={
 /*E*/{2,0},  {6,0},  {2,0},  {8,0},  {3,0},  {3,0},  {5,0},  {5,0},  {2,0},  {2,0},  {2,0},  {2,0},  {4,0},  {4,0},  {6,0},  {6,0}, //E
 /*F*/{2,1},  {5,1},  {0,0},  {8,0},  {4,0},  {4,0},  {6,0},  {6,0},  {2,0},  {4,1},  {2,0},  {7,0},  {4,1},  {4,1},  {7,0},  {7,0}  //F
 };
-/*  ???
-No page crossing:                    Page crossing:
-	 0 1 2 3 4 5 6 7 8 9 A B C D E F      0 1 2 3 4 5 6 7 8 9 A B C D E F
-	 --------------------------------    -------------------------------
-0| 7,6,0,8,3,3,5,5,3,2,2,2,4,4,6,6   |0|7,6,0,8,3,3,5,5,3,2,2,2,4,4,6,6
-1| 0,5,0,8,4,4,6,6,2,4,2,7,4,4,7,7   |1|0,6,0,8,4,4,6,6,2,5,2,7,5,5,7,7
-2| 6,6,0,8,3,3,5,5,4,2,2,2,4,4,6,6   |2|6,6,0,8,3,3,5,5,4,2,2,2,4,4,6,6
-3| 0,5,0,8,4,4,6,6,2,4,2,7,4,4,7,7   |3|0,6,0,8,4,4,6,6,2,5,2,7,5,5,7,7
-4| 6,6,0,8,3,3,5,5,3,2,2,2,3,4,6,6   |4|6,6,0,8,3,3,5,5,3,2,2,2,3,4,6,6
-5| 0,5,0,8,4,4,6,6,2,4,2,7,4,4,7,7   |5|0,6,0,8,4,4,6,6,2,5,2,7,5,5,7,7
-6| 6,6,0,8,3,3,5,5,4,2,2,2,5,4,6,6   |6|6,6,0,8,3,3,5,5,4,2,2,2,5,4,6,6
-7| 0,5,0,8,4,4,6,6,2,4,2,7,4,4,7,7   |7|0,6,0,8,4,4,6,6,2,5,2,7,5,5,7,7
-8| 2,6,2,6,3,3,3,3,2,2,2,2,4,4,4,4   |8|2,6,2,6,3,3,3,3,2,2,2,2,4,4,4,4
-9| 0,6,0,6,4,4,4,4,2,5,2,5,5,5,5,5   |9|0,6,0,6,4,4,4,4,2,5,2,5,5,5,5,5
-A| 2,6,2,6,3,3,3,3,2,2,2,2,4,4,4,4   |A|2,6,2,6,3,3,3,3,2,2,2,2,4,4,4,4
-B| 0,5,0,5,4,4,4,4,2,4,2,4,4,4,4,4   |B|0,6,0,6,4,4,4,4,2,5,2,5,5,5,5,5
-C| 2,6,2,8,3,3,5,5,2,2,2,2,4,4,6,6   |C|2,6,2,8,3,3,5,5,2,2,2,2,4,4,6,6
-D| 0,5,0,8,4,4,6,6,2,4,2,7,4,4,7,7   |D|0,6,0,8,4,4,6,6,2,5,2,7,5,5,7,7
-E| 2,6,2,8,3,3,5,5,2,2,2,2,4,4,6,6   |E|2,6,2,8,3,3,5,5,2,2,2,2,4,4,6,6
-F| 0,5,0,8,4,4,6,6,2,4,2,7,4,4,7,7   |F|0,6,0,8,4,4,6,6,2,5,2,7,5,5,7,7
-                    page cross - no cross:
-                    0 1 2 3 4 5 6 7 8 9 A B C D E F 
-                    --------------------------------
-                0|  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                1|  0,1,0,0,0,0,0,0,0,1,0,0,1,1,0,0,
-                2|  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                3|  0,1,0,0,0,0,0,0,0,1,0,0,1,1,0,0,
-                4|  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                5|  0,1,0,0,0,0,0,0,0,1,0,0,1,1,0,0,
-                6|  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                7|  0,1,0,0,0,0,0,0,0,1,0,0,1,1,0,0,
-                8|  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                9|  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                A|  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                B|  0,1,0,1,0,0,0,0,0,1,0,1,1,1,1,1,
-                C|  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                D|  0,1,0,0,0,0,0,0,0,1,0,0,1,1,0,0,
-                E|  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-                F|  0,1,0,0,0,0,0,0,0,1,0,0,1,1,0,0,
-*/
+
 
 char* CPU_op_names[] = {
 //      0       1            2       3       4       5            6               7       8       9            A            B       C            D            E               F
@@ -1433,16 +1422,6 @@ char* CPU_op_names[] = {
 
 };
 // clang-format on
-
-void CPU_load_rom(CPU_6502 *cpu, NES_ROM *rom) {
-  // trainer stuff
-  // The Trainer Area follows the 16-byte Header and precedes the PRG-ROM area
-  // if bit 2 of Header byte 6 is set. It is always 512 bytes in size if
-  // present, and contains data to be loaded into CPU memory at $7000. It is
-  // only used by some games that were modified to run on different hardware
-  // from the original cartridges, such as early RAM cartridges and emulators,
-  // and which put some additional compatibility code into those address ranges.
-}
 
 size_t CPU_disassemble(uint8_t *data, uint16_t size, char **out) {
   *out = calloc(size * 20, 1);
