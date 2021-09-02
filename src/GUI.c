@@ -380,7 +380,7 @@ if (nk_begin(ctx, "asm",
 CPU_state state=nes->cpu.state;
 uint32_t mapped_adr;
 uint8_t dat;
-uint8_t map_flag = nes->rom->mapper.cpu_read(nes->rom->mapper.state,state.PC,&mapped_adr,&dat);
+/*uint8_t map_flag =*/nes->rom->mapper.cpu_read(nes->rom->mapper.state,state.PC,&mapped_adr,&dat);
 
 static const int len=12+56; 
 char line[len];

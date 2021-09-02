@@ -4,6 +4,8 @@ import csv
 import numpy as np
 import matplotlib.pyplot as plt
 
+from scipy.io.wavfile import write
+
 channels=[]
 
 if(len(sys.argv) > 1):
@@ -27,11 +29,17 @@ for fname in fnames:
 #    offset_ch.append( output  )
 #    last_out=output
 
+#channels[0]=channels[0]*1000
+
+sr=44100
+for i in range(0,len(fnames)):
+    write(f"{fnames[i]}.wav",sr,channels[i].astype(np.int16))
+
 
 for i in range(0,len(fnames)):
     p=0#29249           [p:10000+p] +0.1*i
-    plt.plot(channels[i] ,"-o",label= fnames[i])
+    plt.plot(channels[i] ,label= fnames[i])
 
 #plt.plot(offset_ch,"-o",label="offset ch")
-plt.legend()
+#plt.legend()
 plt.show()

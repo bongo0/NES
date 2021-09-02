@@ -262,24 +262,21 @@ uint8_t CPU_tick(CPU_6502 *cpu) {
 #ifdef NESTEST_LOG_COMP
     CPU_log_state_simple(cpu, mycpu_log, last_PC, cpu->state.op);
 #endif
-  }else{
-    cpu->state.cycle_count--;
   }
+
+
+  if(cpu->state.cycle_count>0)cpu->state.cycle_count--;
 
   // end of instruction UGLY
-   if(cpu->state.cycle_count == 0){
-
-   if(cpu->state.prev_need_IRQ && cpu->state.last_op !=0x40){
+  if(cpu->state.cycle_count == 0){
+   if(cpu->state.prev_need_IRQ){
      CPU_IRQ(cpu);
-   } else if(cpu->state.last_op == 0x40 && cpu->state.prev_need_IRQ){
-     
    }
    cpu->state.prev_need_IRQ = cpu->state.need_IRQ && !CPU_get_status_flag(cpu,CPU_STATUS_INTERUPT_DISABLE);
-   //cpu->state.need_IRQ=0;   
+   //cpu->state.need_IRQ=0;
   }
 
-  // end of a cycle
-  
+
   cpu->state.cycles_accumulated++;
   return new_instr; // return if a new instruction was executed, for trace log
 }
@@ -877,7 +874,7 @@ void *RTS(CPU_6502 *cpu, CPU_addr_mode mode) {
 void *RTI(CPU_6502 *cpu, CPU_addr_mode mode) {
 
   cpu->state.P = CPU_stack_pop(cpu) & 0xCF;
-  //cpu->state.P |= CPU_STATUS_RESERVED; // for nestest.log comparison
+  cpu->state.P |= CPU_STATUS_RESERVED; // for nestest.log comparison
 
   uint8_t low = CPU_stack_pop(cpu);
   uint8_t high = CPU_stack_pop(cpu);

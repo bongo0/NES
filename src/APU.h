@@ -3,7 +3,12 @@
 #include <SDL2/SDL.h>
 #include <stdint.h>
 
-#define DEBUG_AUDIO
+#include "../deps/blip/blip_buf.h"
+#include "../deps/ringbuf/ringbuf.h"
+#include "ring_buffer.h"
+
+
+//#define DEBUG_AUDIO
 
 // NES is mono
 typedef float APUsample;
@@ -140,7 +145,7 @@ typedef struct {
 
   // timer stuff
   uint32_t prev_cycle;  // init = 0
-  uint8_t last_output;  // = 0
+  int8_t last_output;  // = 0
   uint16_t timer;       // = 0
   uint16_t period;      // = 0
   uint16_t real_period; // = 0
@@ -149,7 +154,8 @@ typedef struct {
   FILE *sqr_f;
   uint8_t start_rec;
 #endif
-
+  blip_t *out;
+  int16_t *out_buf;
 } APU_square_channel;
 
 void APU_square_channel_reset(APU_square_channel *sq, uint8_t soft_reset);
@@ -158,10 +164,80 @@ void APU_square_channel_sweep_init(APU_square_channel *sq, uint8_t data);
 void APU_square_channel_update_sweep_target(APU_square_channel *sq);
 void APU_square_channel_set_period(APU_square_channel *sq, uint16_t period);
 
-void APU_square_channel_tick(APU_square_channel *sq);
-uint8_t APU_square_channel_get_output(APU_square_channel *sq);
+int8_t APU_square_channel_tick(APU_square_channel *sq);
+int8_t APU_square_channel_get_output(APU_square_channel *sq);
 
 void APU_square_channel_run(APU_square_channel *sq, uint32_t ratget_cycle);
+
+//#############################################################
+// TRIANGLE CHANNEL
+//#############################################################
+static const uint8_t triangle_sequence[32] = {
+    15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5,  4,  3,  2,  1,  0,
+    0,  1,  2,  3,  4,  5,  6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
+
+typedef struct {
+  // triangle channel does not have an envelope
+  APU_length_counter lc;
+
+  // linear counter
+  uint8_t linear_counter;             //=0
+  uint8_t linear_counter_reload;      //=0
+  uint8_t linear_counter_reload_flag; //=0
+  uint8_t linear_control_flag;        //=0
+
+  uint8_t sequence_pos; //=0
+
+  // timer stuff
+  uint32_t prev_cycle;  // init = 0
+  int8_t last_output;  // = 0
+  uint16_t timer;       // = 0
+  uint16_t period;      // = 0
+  uint16_t real_period; // = 0
+
+
+  blip_t *out;
+  int16_t *out_buf;
+#ifdef DEBUG_AUDIO
+  FILE *sqr_f;
+  uint8_t start_rec;
+#endif
+} APU_triangle_channel;
+
+void APU_triangle_channel_reset(APU_triangle_channel *tr, uint8_t soft_reset);
+void APU_triangle_channel_tick_linear_counter(APU_triangle_channel *tr);
+
+void APU_triangle_channel_tick(APU_triangle_channel *tr);
+
+//#############################################################
+// NOISE CHANNEL
+//#############################################################
+
+typedef struct {
+  APU_envelope envelope;
+  APU_length_counter lc;
+
+
+
+#ifdef DEBUG_AUDIO
+  FILE *sqr_f;
+  uint8_t start_rec;
+#endif
+} APU_noise_channel;
+
+//#############################################################
+// Delta Modulation Channel DMC
+//#############################################################
+
+typedef struct {
+  APU_envelope envelope;
+  APU_length_counter lc;
+
+#ifdef DEBUG_AUDIO
+  FILE *sqr_f;
+  uint8_t start_rec;
+#endif
+} APU_DM_channel;
 
 //#############################################################
 // FRAME COUNTER STUFF
@@ -184,7 +260,6 @@ void APU_square_channel_run(APU_square_channel *sq, uint32_t ratget_cycle);
 #define QUARTER_FRAME 4
 #define HALF_FRAME 2
 #define SKIP_FRAME 0
-
 //                       [sequence_mode][step]
 static const uint8_t Frame_type_table[2][6] = {
     {QUARTER_FRAME, HALF_FRAME, QUARTER_FRAME, SKIP_FRAME, HALF_FRAME,
@@ -216,6 +291,9 @@ typedef struct {
   uint8_t DMC_IRQ_flag;
 
   APU_square_channel sqr1, sqr2;
+  APU_triangle_channel tr;
+  APU_noise_channel noise;
+  APU_DM_channel dmc;
 
   int32_t previous_frame_cycle; // = 0
   uint32_t current_step;        // = 0
@@ -230,8 +308,21 @@ typedef struct {
   SDL_AudioCallback fill_audio_buffer;
   // the required sample output format
   SDL_AudioFormat format;
+  
+
+
+  // output stuff
+  int16_t *out_buf;
+  uint32_t out_read_pos;
+  uint32_t out_write_pos;
+
+  uint8_t *final_buf;
+  //ring_buffer *r_buf;
+  ringbuf_t r_buf;
 
 } APU;
+
+#define AUDIO_FRAME_SIZE 12800
 
 #define STEP_4_SEQ 0
 #define STEP_5_SEQ 1
@@ -250,5 +341,6 @@ uint32_t APU_frame_counter_run(APU *apu, int32_t *cycles_to_run);
 void APU_run(APU *apu);
 void APU_tick(APU *apu);
 void APU_end_frame(APU *apu);
+void APU_free(APU *apu);
 
 #endif // APU_H

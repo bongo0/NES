@@ -1,5 +1,5 @@
 #include "APU.h"
-
+#include "timers.h"
 //#############################################################
 // DIVIDER
 //#############################################################
@@ -97,7 +97,8 @@ void APU_length_counter_init(APU_length_counter *lc) { // OK
   lc->reload_length_counter = 0;
 }
 
-void APU_length_counter_reset(APU_length_counter *lc, uint8_t soft_reset) { // OK
+void APU_length_counter_reset(APU_length_counter *lc,
+                              uint8_t soft_reset) { // OK
 
   lc->enabled = 0;
 
@@ -184,12 +185,14 @@ void APU_square_channel_sweep_init(APU_square_channel *sq, uint8_t reg) { // OK
   sq->sweep_reload = 1;
 }
 
-void APU_square_channel_reset(APU_square_channel *sq, uint8_t soft_reset) { // OK
+void APU_square_channel_reset(APU_square_channel *sq,
+                              uint8_t soft_reset) { // OK
   // timer reset
   sq->timer = 0;
   sq->period = 0;
   sq->last_output = 0;
   sq->prev_cycle = 0;
+  sq->real_period = 0;
 
   // length counter reset
   APU_length_counter_reset(&sq->lc, soft_reset);
@@ -198,8 +201,6 @@ void APU_square_channel_reset(APU_square_channel *sq, uint8_t soft_reset) { // O
 
   sq->duty_cycle = 0;
   sq->duty_pos = 0;
-
-  sq->real_period = 0;
 
   sq->sweep_enable = 0;
   sq->sweep_period = 0;
@@ -241,7 +242,7 @@ void APU_square_channel_sweep_tick(APU_square_channel *sq) { // OK
   }
 }
 
-uint8_t APU_square_channel_get_output(APU_square_channel *sq) {//OK
+int8_t APU_square_channel_get_output(APU_square_channel *sq) { // OK
 
   if (sq->real_period < 8 ||
       (!sq->sweep_negate && sq->sweep_target_period > 0x7FF)) // muted
@@ -255,20 +256,30 @@ uint8_t APU_square_channel_get_output(APU_square_channel *sq) {//OK
   }
 }
 
-void APU_square_channel_tick(APU_square_channel *sq) {// OK
+int8_t APU_square_channel_tick(APU_square_channel *sq) { // OK
   APU_square_channel_duty(sq);
 
   // TODO: output the sample
-  uint8_t sample = APU_square_channel_get_output(sq);
+  int8_t sample = APU_square_channel_get_output(sq);
+  int16_t delta = (int8_t)sample - (int8_t)sq->last_output;
+  if (delta!=0) {
+    blip_add_delta(sq->out, sq->prev_cycle, delta*1000);
+  }
 
+#ifdef DEBUG_AUDIO
   if (sample != 0)
     sq->start_rec = 1; // first nonzero sample starts rec
   if (sq->start_rec) {
-    //fprintf(sq->sqr_f, "%d\n", sample);
+  //  fprintf(sq->sqr_f, "%d\n", sample);
   }
+#endif
+
+  sq->last_output = sample;
+  return sample;
 }
 
-void APU_square_channel_run(APU_square_channel *sq, uint32_t target_cycle) {//OK
+void APU_square_channel_run(APU_square_channel *sq,
+                            uint32_t target_cycle) { // OK
   int32_t cycles_to_run = target_cycle - sq->prev_cycle;
   while (cycles_to_run > sq->timer) {
     cycles_to_run -= sq->timer + 1;
@@ -279,6 +290,82 @@ void APU_square_channel_run(APU_square_channel *sq, uint32_t target_cycle) {//OK
   sq->timer -= cycles_to_run;
   sq->prev_cycle = target_cycle;
 }
+
+//#############################################################
+// TRIANGLE CHANNEL
+//#############################################################
+
+void APU_triangle_channel_reset(APU_triangle_channel *tr, uint8_t soft_reset) {
+  // timer reset
+  tr->timer = 0;
+  tr->period = 0;
+  tr->last_output = 0;
+  tr->prev_cycle = 0;
+  tr->real_period = 0;
+
+  // length counter reset
+  APU_length_counter_reset(&tr->lc, soft_reset);
+
+  tr->linear_counter = 0;
+  tr->linear_counter_reload = 0;
+  tr->linear_counter_reload_flag = 0;
+  tr->linear_counter_reload_flag = 0;
+  tr->sequence_pos = 0;
+}
+
+void APU_triangle_channel_tick_linear_counter(APU_triangle_channel *tr) {
+  if (tr->linear_counter_reload_flag) {
+    tr->linear_counter = tr->linear_counter_reload;
+  } else if (tr->linear_counter > 0) {
+    tr->linear_counter--;
+  }
+  if (!tr->linear_control_flag) {
+    tr->linear_counter_reload_flag = 0;
+  }
+}
+
+void APU_triangle_channel_tick(APU_triangle_channel *tr) {
+  uint8_t sample = 0;
+  if (tr->lc.length_counter > 0 && tr->linear_counter > 0) {
+    // period??
+    tr->sequence_pos = (tr->sequence_pos + 1) & 0x1f;
+    sample = triangle_sequence[tr->sequence_pos];
+  }
+
+  int16_t delta = (int8_t)sample - (int8_t)tr->last_output;
+  if (delta!=0) {
+    blip_add_delta(tr->out, tr->prev_cycle, delta*1000);
+  }
+  tr->last_output=sample;
+#ifdef DEBUG_AUDIO
+  if (sample != 0)
+    tr->start_rec = 1; // first nonzero sample starts rec
+  if (tr->start_rec) {
+    // fprintf(tr->sqr_f, "%d\n", sample);
+  }
+#endif
+}
+
+void APU_triangle_channel_run(APU_triangle_channel *tr,
+                              uint32_t target_cycle) { // OK
+  int32_t cycles_to_run = target_cycle - tr->prev_cycle;
+  while (cycles_to_run > tr->timer) {
+    cycles_to_run -= tr->timer + 1;
+    tr->prev_cycle += tr->timer + 1;
+    APU_triangle_channel_tick(tr);
+    tr->timer = tr->period;
+  }
+  tr->timer -= cycles_to_run;
+  tr->prev_cycle = target_cycle;
+}
+
+//#############################################################
+// NOISE CHANNEL
+//#############################################################
+
+//#############################################################
+// Delta Modulation Channel DMC
+//#############################################################
 
 //#############################################################
 // APU
@@ -292,7 +379,7 @@ void APU_square_channel_run(APU_square_channel *sq, uint32_t target_cycle) {//OK
 // $4015  All Channel enable and length counter status
 // $4017  All Frame counter
 void APU_cpu_write(APU *apu, uint16_t adr, uint8_t data,
-                   uint8_t between_apu_cycle) {           //OK
+                   uint8_t between_apu_cycle) { // OK
   APU_run(apu);
   switch (adr) {
   // Square ch 1
@@ -304,13 +391,14 @@ void APU_cpu_write(APU *apu, uint16_t adr, uint8_t data,
     apu->needs_to_run = 1;
     APU_envelope_init(&apu->sqr1.envelope, data);
     break;
-  case 0x4001: //OK
-    APU_square_channel_sweep_init(&apu->sqr1, data); break;
-  case 0x4002: //OK
+  case 0x4001: // OK
+    APU_square_channel_sweep_init(&apu->sqr1, data);
+    break;
+  case 0x4002: // OK
     APU_square_channel_set_period(&apu->sqr1,
                                   (apu->sqr1.real_period & 0x0700) | data);
     break;
-  case 0x4003: //OK
+  case 0x4003: // OK
     APU_length_counter_load(&apu->sqr1.lc, data >> 3);
     if (apu->sqr1.lc.enabled)
       apu->needs_to_run = 1;
@@ -321,15 +409,16 @@ void APU_cpu_write(APU *apu, uint16_t adr, uint8_t data,
     break;
 
   // Square ch 2 (Should be the same as above just with sqr1 -> sgr2 )
-  case 0x4004:  //OK
+  case 0x4004: // OK
     apu->sqr2.duty_cycle = (data & 0xc0) >> 6;
     // init length counter
     apu->sqr2.lc.new_halt = (data & 0x20) == 0x20;
     apu->needs_to_run = 1;
     APU_envelope_init(&apu->sqr2.envelope, data);
     break;
-  case 0x4005:  //OK
-    APU_square_channel_sweep_init(&apu->sqr2, data); break;
+  case 0x4005: // OK
+    APU_square_channel_sweep_init(&apu->sqr2, data);
+    break;
   case 0x4006: // OK
     APU_square_channel_set_period(&apu->sqr2,
                                   (apu->sqr2.real_period & 0x0700) | data);
@@ -345,9 +434,23 @@ void APU_cpu_write(APU *apu, uint16_t adr, uint8_t data,
     break;
 
   // Triangle ch
-  case 0x4008: break;
-  case 0x400A: break;
-  case 0x400B: break;
+  case 0x4008:
+    apu->tr.linear_control_flag = (data & 0x80) == 0x80;
+    apu->tr.linear_counter_reload = data & 0x7f;
+    // init length counter
+    apu->sqr1.lc.new_halt = (data & 0x20) == 0x20;
+    apu->needs_to_run = 1;
+    break;
+  case 0x400A:
+    apu->tr.period &= ~0x00ff;
+    apu->tr.period |= data;
+    break;
+  case 0x400B:
+    APU_length_counter_load(&apu->tr.lc, data >> 3);
+    apu->tr.period &= ~0x00ff;
+    apu->tr.period |= (data & 0x07) << 8;
+    apu->tr.linear_counter_reload_flag = 1;
+    break;
 
   // Noise ch
   case 0x400C: break;
@@ -361,12 +464,12 @@ void APU_cpu_write(APU *apu, uint16_t adr, uint8_t data,
   case 0x4013: break;
 
   // Control reg
-  case 0x4015: // OK
+  case 0x4015:             // OK
     apu->DMC_IRQ_flag = 0; // clear DMC interupt flag
     APU_length_counter_set_enabled(&apu->sqr1.lc, (data & 0x01) == 0x01);
     APU_length_counter_set_enabled(&apu->sqr2.lc, (data & 0x02) == 0x02);
+    apu->tr.lc.enabled = (data & 0x04) == 0x04;
     // TODO
-    // apu->triangle.lc.enabled = (data & 0x04) == 0x04;
     // apu->noise.lc.enabled    = (data & 0x08) == 0x08;
     // apu->DMC.lc.enabled      = (data & 0x10) == 0x10;
 
@@ -407,8 +510,8 @@ uint8_t APU_cpu_read(APU *apu, uint16_t adr) { // OK
   uint8_t status = 0;
   status |= apu->sqr1.lc.length_counter > 0 ? 0x01 : 0x00;
   status |= apu->sqr2.lc.length_counter > 0 ? 0x02 : 0x00;
+  status |= apu->tr.lc.length_counter > 0 ? 0x04 : 0x00;
   // TODO
-  // status |= apu->triangle.lc.length_counter>0  ? 0x04 : 0x00;
   // status |= apu->noise.lc.length_counter>0  ? 0x08 : 0x00;
   // status |= apu->DMC.lc.length_counter>0  ? 0x10 : 0x00;
   status |= apu->Frame_counter_IRQ_flag ? 0x40 : 0x00;
@@ -425,7 +528,22 @@ void APU_init(APU *apu) {
   apu->sqr1.start_rec = 0;
   apu->sqr2.sqr_f = fopen("sqr2_ch.txt", "w");
   apu->sqr2.start_rec = 0;
+  apu->tr.sqr_f = fopen("tr_ch.txt", "w");
+  apu->tr.start_rec = 0;
 #endif
+
+  apu->sqr1.out = blip_new(AUDIO_FRAME_SIZE);
+  apu->sqr2.out = blip_new(AUDIO_FRAME_SIZE);
+  apu->tr.out = blip_new(AUDIO_FRAME_SIZE);
+  blip_set_rates(apu->sqr1.out, 1789773, 44100);
+  blip_set_rates(apu->sqr2.out, 1789773, 44100);
+  blip_set_rates(apu->tr.out, 1789773, 44100);
+  apu->sqr1.out_buf = malloc(AUDIO_FRAME_SIZE* sizeof(int16_t));
+  apu->sqr2.out_buf = malloc(AUDIO_FRAME_SIZE* sizeof(int16_t));
+  apu->tr.out_buf = malloc(AUDIO_FRAME_SIZE* sizeof(int16_t));
+
+
+  apu->out_buf = malloc(AUDIO_FRAME_SIZE * sizeof(int16_t));
 
   apu->sqr1.sweep_negate_mode = SQR_CHANNEL_1;
   apu->sqr2.sweep_negate_mode = SQR_CHANNEL_1 + 1;
@@ -433,6 +551,18 @@ void APU_init(APU *apu) {
   apu->sequence_mode = 0;
   apu->current_step = 0;
   apu->write_delay_0x4017 = 0;
+
+
+#define FINAL_AUDIO_BUF_SIZE 2<<14
+  //apu->final_buf = malloc(FINAL_AUDIO_BUF_SIZE);
+  //memset(apu->final_buf,0,FINAL_AUDIO_BUF_SIZE);
+  //apu->r_buf=ring_buffer_new(FINAL_AUDIO_BUF_SIZE);
+  apu->r_buf=ringbuf_new(FINAL_AUDIO_BUF_SIZE);
+
+  apu->fill_audio_buffer=&APU_fill_audio_buffer;
+  apu->out_read_pos=0;
+  apu->out_write_pos=0;
+
 }
 
 void APU_frame_counter_reset(APU *apu, uint8_t soft_reset) {
@@ -448,19 +578,21 @@ void APU_frame_counter_reset(APU *apu, uint8_t soft_reset) {
   apu->block_frame_counter_tick = 0;
 }
 
-static inline void APU_frame_counter_tick__(APU *apu, uint8_t frame_type) {//OK
-  //if (frame_type == SKIP_FRAME)
+static inline void APU_frame_counter_tick__(APU *apu,
+                                            uint8_t frame_type) { // OK
+  // if (frame_type == SKIP_FRAME)
   //  return;
 
   APU_envelope_tick(&apu->sqr1.envelope);
   APU_envelope_tick(&apu->sqr2.envelope);
-  // TODO triangle tick_linear_counter
+  APU_triangle_channel_tick_linear_counter(&apu->tr);
   // NOISE channel envelope tick
 
   if (frame_type == HALF_FRAME) {
     APU_length_counter_tick(&apu->sqr1.lc);
     APU_length_counter_tick(&apu->sqr2.lc);
-    // TODO triangle tick len counter
+    APU_length_counter_tick(&apu->tr.lc);
+    // TODO
     // noise tick len counter
 
     APU_square_channel_sweep_tick(&apu->sqr1);
@@ -470,7 +602,7 @@ static inline void APU_frame_counter_tick__(APU *apu, uint8_t frame_type) {//OK
 
 // This is ticked every CPU tick
 // APU runs every 2 CPU cycles, This function handles it
-uint32_t APU_frame_counter_run(APU *apu, int32_t *cycles_to_run) { //OK
+uint32_t APU_frame_counter_run(APU *apu, int32_t *cycles_to_run) { // OK
   uint32_t cycles_ran;
   uint8_t mode = apu->sequence_mode;
   uint8_t step = apu->current_step;
@@ -531,7 +663,7 @@ uint32_t APU_frame_counter_run(APU *apu, int32_t *cycles_to_run) { //OK
   return cycles_ran;
 }
 
-uint8_t APU_needs_to_run(APU *apu, uint32_t current_cycle) {       //OK
+uint8_t APU_needs_to_run(APU *apu, uint32_t current_cycle) { // OK
   // TODO if(DMC needs to run || apu->needs_to_run){apu->needs_to_run=0; return
   // 1;}
   if (apu->needs_to_run) {
@@ -548,38 +680,78 @@ uint8_t APU_needs_to_run(APU *apu, uint32_t current_cycle) {       //OK
   return frame_counter_run; // || DMC_IRQ_pending(apu->DMC, to_run);
 }
 
-void APU_run(APU *apu) {      //OK
+void APU_run(APU *apu) { // OK
   int32_t cycles_to_run = apu->cycle - apu->prev_cycle;
   while (cycles_to_run > 0) {
     apu->prev_cycle += APU_frame_counter_run(apu, &cycles_to_run);
 
     APU_length_counter_reload(&apu->sqr1.lc);
     APU_length_counter_reload(&apu->sqr2.lc);
+    APU_length_counter_reload(&apu->tr.lc);
     // TODO + noise, triangle, dmc
 
     APU_square_channel_run(&apu->sqr1, apu->prev_cycle);
     APU_square_channel_run(&apu->sqr2, apu->prev_cycle);
+    APU_triangle_channel_run(&apu->tr, apu->prev_cycle);
     // + noise,triangle,dmc
   }
 }
 
-void APU_tick(APU *apu) {  // OK
-  apu->cycle++;
-/*   if(apu->cycle == 9999){
-    APU_run(apu);
-    apu->sqr1.prev_cycle=0;
-    apu->sqr2.prev_cycle=0;
+CLOCK_INIT(into)
 
-    apu->cycle=0;
-    apu->prev_cycle=0;
-  }
-  else */
-  if (APU_needs_to_run(apu, apu->cycle)) {
+void APU_tick(APU *apu) { // OK
+
+  apu->cycle++;
+  if (apu->cycle == AUDIO_FRAME_SIZE - 1) {
+    APU_run(apu);
+    // end frame
+    apu->sqr1.prev_cycle = 0;
+    apu->sqr2.prev_cycle = 0;
+    apu->tr.prev_cycle = 0;
+    // TODO noise dmc
+
+    blip_end_frame(apu->sqr1.out, apu->cycle);
+    size_t sample_count =
+        blip_read_samples(apu->sqr1.out, apu->sqr1.out_buf, AUDIO_FRAME_SIZE, 0);
+
+    blip_end_frame(apu->sqr2.out, apu->cycle);
+    sample_count =
+        blip_read_samples(apu->sqr2.out, apu->sqr2.out_buf, AUDIO_FRAME_SIZE, 0);
+
+    blip_end_frame(apu->tr.out, apu->cycle);
+    sample_count =
+        blip_read_samples(apu->tr.out, apu->tr.out_buf, AUDIO_FRAME_SIZE, 0);
+
+
+    for(size_t i = 0; i<sample_count;++i){
+      apu->out_buf[i] = apu->sqr1.out_buf[i]+apu->sqr2.out_buf[i]+apu->tr.out_buf[i]/2;
+    }
+
+CLOCK_START(into);
+    //ring_buffer_memcpy_to(apu->r_buf, apu->out_buf,2*sample_count);
+    ringbuf_memcpy_into(apu->r_buf, apu->out_buf,2*sample_count);
+CLOCK_END(into);
+//printf("free: %lu / %lu\n",apu->r_buf->free_bytes,FINAL_AUDIO_BUF_SIZE);
+
+    
+    apu->cycle = 0;
+    apu->prev_cycle = 0;
+
+  } else if (APU_needs_to_run(apu, apu->cycle)) {
     APU_run(apu);
   }
 }
 
-void APU_end_frame(APU *apu) {}
+/*
+void APU_end_frame(APU *apu) {
+  APU_run(apu);
+  apu->sqr1.prev_cycle = 0;
+  apu->sqr2.prev_cycle = 0;
+  apu->tr.prev_cycle = 0;
+
+  apu->cycle = 0;
+  apu->prev_cycle = 0;
+} */
 
 void APU_reset(APU *apu, uint8_t soft_reset) {
   apu->cycle = 0;
@@ -587,10 +759,50 @@ void APU_reset(APU *apu, uint8_t soft_reset) {
 
   APU_square_channel_reset(&apu->sqr1, soft_reset);
   APU_square_channel_reset(&apu->sqr2, soft_reset);
+  APU_triangle_channel_reset(&apu->tr, soft_reset);
 
   APU_frame_counter_reset(apu, soft_reset);
+
+  blip_clear(apu->sqr1.out);
+  blip_clear(apu->sqr2.out);
+
 }
 
-void APU_fill_audio_buffer(void *apu_, uint8_t *stream, int len) {
-  //  APU *apu = (APU *)apu_;
+
+CLOCK_INIT(from)
+
+void APU_fill_audio_buffer(void *apu_, uint8_t *stream, int len/*in bytes*/) {
+  APU *apu = (APU *)apu_;
+
+CLOCK_START(from);
+  //ring_buffer_memcpy_n_from(apu->r_buf,stream, len);
+  ringbuf_memcpy_from(stream,apu->r_buf, len);
+CLOCK_END(from);
+
+}
+
+
+
+void APU_free(APU *apu){
+  blip_delete(apu->sqr1.out);
+  blip_delete(apu->sqr2.out);
+  blip_delete(apu->tr.out);
+
+  free(apu->sqr1.out_buf);
+  free(apu->sqr2.out_buf);
+  free(apu->tr.out_buf);
+
+  free(apu->out_buf);
+
+  printf("\nfrom: avr: %lf  full: %lf   n:%lu\n",
+    CLOCK_RESULT_AVERAGE_uS(from),
+    CLOCK_RESULT_FULL_TIME_uS(from),
+    CLOCK_RESULT_N_MEAS(from)
+    );
+
+  printf("\ninto: avr: %lf  full: %lf   n:%lu\n",
+    CLOCK_RESULT_AVERAGE_uS(into),
+    CLOCK_RESULT_FULL_TIME_uS(into),
+    CLOCK_RESULT_N_MEAS(into)
+    );
 }

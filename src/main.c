@@ -47,7 +47,7 @@ void trace_func(void *data) {
       d->line_repeat=0;
       uint32_t mapped_adr = nes->cpu.state.PC;// set to PC if mapper does not map it
       uint8_t dat;
-      uint8_t map_flag = nes->rom->mapper.cpu_read(
+      /*uint8_t map_flag =*/nes->rom->mapper.cpu_read(
           nes->rom->mapper.state, nes->cpu.state.PC, &mapped_adr, &dat);
       fprintf(
           d->trace_log_f,
@@ -82,9 +82,7 @@ int main(int argc, char **argv) {
   }
 
 //testing
-  APU apu;
   Audio_context a_ctx;
-  Audio_init(&a_ctx,44100,2048,&apu);
 //-------
 
   NES_ROM rom;
@@ -92,6 +90,9 @@ int main(int argc, char **argv) {
 
   NES_BUS nes;
   BUS_init(&nes, &rom);
+
+  Audio_init(&a_ctx,44100,2048,&nes.apu);
+  
 
   Disassembly6502 dis_asm;
   Disassemble(rom.PRG_p, rom.PRG_size, &dis_asm);
@@ -120,6 +121,7 @@ int main(int argc, char **argv) {
   int run = 0;
   int close = 0;
   int last_scanl = 0;
+  int audio=0;
   while (!close) {
 
     SDL_Event event;
@@ -144,6 +146,7 @@ int main(int argc, char **argv) {
           last_scanl = nes.ppu.scan_line;
           break;
         case SDLK_r: run = !run; break;
+        case SDLK_m: audio = !audio; break;
         case SDLK_F1: BUS_reset(&nes); break;
         default: break;
         }
@@ -171,6 +174,12 @@ int main(int argc, char **argv) {
         BUS_tick(&nes);
       }
       nes.ppu.frame_complete = 0;
+    }
+
+    if(audio){
+      SDL_PauseAudioDevice(a_ctx.dev_id,1);
+    }else{
+      SDL_PauseAudioDevice(a_ctx.dev_id,0);
     }
 
     PPU_load_pattern_table(&nes.ppu, 0);
@@ -289,11 +298,12 @@ int main(int argc, char **argv) {
 
     GUI_render_end(&gui_ctx);
 
-    // SDL_Delay(1000 / 60);
+    //SDL_Delay(1000 / 60);
   }
 
   GUI_quit(&gui_ctx);
   Audio_quit();
   ROM_free(&rom);
+  BUS_free(&nes);
   return EXIT_SUCCESS;
 }

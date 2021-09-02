@@ -11,9 +11,9 @@ void Audio_init(Audio_context *actx, uint32_t sample_rate, uint16_t buf_size,
   // spec that we want
   SDL_AudioSpec spec;
   SDL_memset(&spec, 0, sizeof(spec));
-  spec.format = AUDIO_U8; // signed 16 bit samples AUDIO_S16SYS
+  spec.format = AUDIO_S16SYS; // signed 16 bit samples AUDIO_S16SYS
   spec.freq = sample_rate;
-  spec.channels = 2;
+  spec.channels = 1;
   spec.samples = 2 * buf_size;
   spec.callback = apu->fill_audio_buffer;
   spec.userdata = apu;
@@ -27,6 +27,7 @@ void Audio_init(Audio_context *actx, uint32_t sample_rate, uint16_t buf_size,
   }
 
   SDL_AudioSpec got_spec;
+  SDL_memset(&got_spec, 0, sizeof(got_spec));
   actx->dev_id = SDL_OpenAudioDevice(NULL, 0, &spec, &actx->obtained_spec, 0);
 
   LOG("[AUDIO] Obtained audio spec:\n"
@@ -39,5 +40,7 @@ void Audio_init(Audio_context *actx, uint32_t sample_rate, uint16_t buf_size,
   // tell APU what is the sample format
   apu->format = got_spec.format;
 }
+
+
 
 void Audio_quit() { SDL_CloseAudio(); }

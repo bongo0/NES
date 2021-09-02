@@ -112,23 +112,24 @@ void BUS_tick(NES_BUS *nes) {
       if (nes->trace_log != NULL && new_instr)
         nes->trace_log(nes->trace_data);
       // APU ticks every 2 CPU cycles, but this method handles it internally
+      APU_tick(&nes->apu);
+
   // PPU emit interupt
-      //APU_tick(&nes->apu);
-      /* if(&nes->apu.Frame_counter_IRQ_flag || &nes->apu.DMC_IRQ_flag){
-        //CPU_IRQ(&nes->cpu);
-        nes->cpu.state.need_IRQ=1;
-      } */
-    
-    }
-
-
-  }
-
   if (nes->ppu.state.nmi) {
         nes->ppu.state.nmi = 0;
         CPU_NMI(&nes->cpu);
+  } else
+      if(&nes->apu.Frame_counter_IRQ_flag || &nes->apu.DMC_IRQ_flag){
+        //CPU_IRQ(&nes->cpu);
+        nes->cpu.state.need_IRQ=1;
       }
+    }
+
+  }
+
   nes->tick_counter++;
 }
 
-void BUS_free(NES_BUS *nes) {}
+void BUS_free(NES_BUS *nes) {
+  APU_free(&nes->apu);
+}

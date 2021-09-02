@@ -30,8 +30,8 @@ test/bin:
 test: $(LIB_OBJS) $(TESTBINS)
 	for test in $(TESTBINS); do ./$$test --verbose=; done
 
-$(DEPS_OBJS): $(DEPS)
+$(DEPS_OBJS): deps/%.o: deps/%.c
 	$(CC) $(CFLAGS) -c -o $@ $< $(INCLUDES)
 
 clean:
-	$(RM) -r bin/* obj/* test/bin/*
+	$(RM) -r bin/* obj/*.o obj/*/*.o test/bin/*

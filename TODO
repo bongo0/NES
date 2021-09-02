@@ -2,3 +2,8 @@
 
 
 * BRK dummy read stuff..
+
+
+* https://github.com/michaeltyson/TPCircularBuffer
+  https://abhinavag.medium.com/a-fast-circular-ring-buffer-4d102ef4d4a3
+  https://github.com/smcho-kr/magic-ring-buffer
