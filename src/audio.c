@@ -14,7 +14,7 @@ void Audio_init(Audio_context *actx, uint32_t sample_rate, uint16_t buf_size,
   spec.format = AUDIO_S16SYS; // signed 16 bit samples AUDIO_S16SYS
   spec.freq = sample_rate;
   spec.channels = 1;
-  spec.samples = 2 * buf_size;
+  spec.samples = buf_size;
   spec.callback = apu->fill_audio_buffer;
   spec.userdata = apu;
 

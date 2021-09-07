@@ -13,16 +13,18 @@ struct nk_color RGBAu32_to_nk_color(uint32_t in) {
 
 struct nk_colorf RGBAu32_to_nk_colorf(uint32_t in) {
   struct nk_colorf col;
-  col.a = (float)(in & 0xFF)/255;
-  col.b = (float)((in >> 8) & 0xFF)/255;
-  col.g = (float)((in >> 16) & 0xFF)/255;
-  col.r = (float)(nk_byte)((in >> 24) & 0xFF)/255;
+  col.a = (float)(in & 0xFF) / 255;
+  col.b = (float)((in >> 8) & 0xFF) / 255;
+  col.g = (float)((in >> 16) & 0xFF) / 255;
+  col.r = (float)(nk_byte)((in >> 24) & 0xFF) / 255;
   return col;
 }
 
-static inline char byte_to_printable_ascii(uint8_t b){
-  if(b>=0x20 && b<=0x7E)return b;
-  else return '.';
+static inline char byte_to_printable_ascii(uint8_t b) {
+  if (b >= 0x20 && b <= 0x7E)
+    return b;
+  else
+    return '.';
 }
 #define bta(b) byte_to_printable_ascii(b)
 
@@ -38,7 +40,8 @@ void GUI_init(GUI_context *ctx, NES_BUS *nes) {
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
-  SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+  SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 0);
+  // SDL_GL_SetSwapInterval(0);
   ctx->window =
       SDL_CreateWindow("NES", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                        WIN_WIDTH, WIN_HEIGHT,
@@ -79,25 +82,27 @@ void GUI_init(GUI_context *ctx, NES_BUS *nes) {
      "~/NES.ttf", fs, &fc); */
 
     nk_sdl_font_stash_end();
-    //nk_style_set_font(ctx->nk_ctx, &font->handle);
+    // nk_style_set_font(ctx->nk_ctx, &font->handle);
   }
 
-    // nuklear style stuff
-    ctx->nk_ctx->style.button.rounding = 0;
+  // nuklear style stuff
+  ctx->nk_ctx->style.button.rounding = 0;
 
   ctx->bg = RGBAu32_to_nk_colorf(STYLE_DARK_GREY);
 
-    // GUI state
-    ctx->state.nes = nes;
+  // GUI state
+  ctx->state.nes = nes;
 
-    ctx->state.show_CPU_RAM = nk_false;
-    ctx->state.show_NAM_RAM = nk_false;
-    ctx->state.show_OAM_RAM = nk_false;
-    ctx->state.show_OAS_RAM = nk_false;
-    ctx->state.show_MAP_RAM = nk_false;
-    ctx->state.write_tracelog = nk_false;
-    ctx->state.show_disasm = nk_false;
+  ctx->state.show_CPU_RAM = nk_false;
+  ctx->state.show_NAM_RAM = nk_false;
+  ctx->state.show_OAM_RAM = nk_false;
+  ctx->state.show_OAS_RAM = nk_false;
+  ctx->state.show_MAP_RAM = nk_false;
+  ctx->state.write_tracelog = nk_false;
+  ctx->state.show_disasm = nk_false;
 
+  ctx->state.show_PPU_state = nk_false;
+  ctx->state.show_CPU_state = nk_false;
 }
 
 int GUI_process_events(GUI_context *ctx) {
@@ -170,18 +175,21 @@ void GUI_menu_bar(GUI_context *gui_ctx) {
     if (nk_menu_begin_label(ctx, "MEMORY", NK_TEXT_LEFT, nk_vec2(210, 200))) {
       nk_layout_row_dynamic(ctx, 25, 1);
       nk_checkbox_label(ctx, "CPU RAM", &gui_ctx->state.show_CPU_RAM);
-      nk_checkbox_label(ctx,  "Name table RAM", &gui_ctx->state.show_NAM_RAM);
-      nk_checkbox_label(ctx, "Object Attribute Memory", &gui_ctx->state.show_OAM_RAM);
-      nk_checkbox_label(ctx, "Object Attribute Scanline", &gui_ctx->state.show_OAS_RAM);
+      nk_checkbox_label(ctx, "Name table RAM", &gui_ctx->state.show_NAM_RAM);
+      nk_checkbox_label(ctx, "Object Attribute Memory",
+                        &gui_ctx->state.show_OAM_RAM);
+      nk_checkbox_label(ctx, "Object Attribute Scanline",
+                        &gui_ctx->state.show_OAS_RAM);
       nk_checkbox_label(ctx, "Mapper", &gui_ctx->state.show_MAP_RAM);
-      
 
       nk_menu_end(ctx);
     }
 
     if (nk_menu_begin_label(ctx, "PPU", NK_TEXT_LEFT, nk_vec2(120, 200))) {
       nk_layout_row_dynamic(ctx, 25, 1);
-      nk_checkbox_label(ctx, "Pattern table", &gui_ctx->state.show_Pattern_table);
+      nk_checkbox_label(ctx, "Pattern table",
+                        &gui_ctx->state.show_Pattern_table);
+      nk_checkbox_label(ctx, "PPU state", &gui_ctx->state.show_PPU_state);
 
       nk_menu_end(ctx);
     }
@@ -195,9 +203,9 @@ void GUI_menu_bar(GUI_context *gui_ctx) {
       nk_menu_end(ctx);
     }
 
-    if (nk_menu_begin_label(ctx, "DEBUG", NK_TEXT_LEFT, nk_vec2(120, 200))) {
+    if (nk_menu_begin_label(ctx, "CPU", NK_TEXT_LEFT, nk_vec2(120, 200))) {
       nk_layout_row_dynamic(ctx, 25, 1);
-
+      nk_checkbox_label(ctx, "CPU state", &gui_ctx->state.show_CPU_state);
       nk_checkbox_label(ctx, "Disassembly", &gui_ctx->state.show_disasm);
       nk_checkbox_label(ctx, "Trace log", &gui_ctx->state.write_tracelog);
 
@@ -295,17 +303,16 @@ void GUI_cpu_state(GUI_context *gui_ctx, NES_BUS *nes) {
 }
 
 void GUI_memory(GUI_context *gui_ctx) {
-static const int x=50;
-static const int y=400;
-static const int w=680;
-static const int h=380+16;
-pair_size_t range = {0,0};
-size_t poi=0;
-#define HEX_00_0F_STR   "    00  01  02  03  04  05  06  07  08  09  0A  0B  0C  0D  0E  0F"
+  static const int x = 50;
+  static const int y = 400;
+  static const int w = 680;
+  static const int h = 380 + 16;
+  pair_size_t range = {0, 0};
+  size_t poi = 0;
+#define HEX_00_0F_STR                                                          \
+  "    00  01  02  03  04  05  06  07  08  09  0A  0B  0C  0D  0E  0F"
   if (gui_ctx->state.show_CPU_RAM) {
-    if (nk_begin(gui_ctx->nk_ctx,
-                 "CPU"HEX_00_0F_STR,
-                 nk_rect(x, y, w, h),
+    if (nk_begin(gui_ctx->nk_ctx, "CPU" HEX_00_0F_STR, nk_rect(x, y, w, h),
                  NK_WINDOW_TITLE | NK_WINDOW_BORDER | NK_WINDOW_MOVABLE |
                      NK_WINDOW_SCALABLE | NK_WINDOW_MINIMIZABLE)) {
       GUI_cpu_ram_view(gui_ctx, gui_ctx->state.nes);
@@ -314,51 +321,43 @@ size_t poi=0;
   }
 
   if (gui_ctx->state.show_NAM_RAM) {
-    if (nk_begin(gui_ctx->nk_ctx,
-                 "NAM"HEX_00_0F_STR,
-                 nk_rect(x, y, w, h),
+    if (nk_begin(gui_ctx->nk_ctx, "NAM" HEX_00_0F_STR, nk_rect(x, y, w, h),
                  NK_WINDOW_TITLE | NK_WINDOW_BORDER | NK_WINDOW_MOVABLE |
                      NK_WINDOW_SCALABLE | NK_WINDOW_MINIMIZABLE)) {
-      GUI_memory_view(gui_ctx, gui_ctx->state.nes->ppu.name_table, 2048,range,poi);
+      GUI_memory_view(gui_ctx, gui_ctx->state.nes->ppu.name_table, 2048, range,
+                      poi);
     }
     nk_end(gui_ctx->nk_ctx);
   }
 
   if (gui_ctx->state.show_OAM_RAM) {
-    if (nk_begin(gui_ctx->nk_ctx,
-                 "OAM"HEX_00_0F_STR,
-                 nk_rect(x, y, w, h),
+    if (nk_begin(gui_ctx->nk_ctx, "OAM" HEX_00_0F_STR, nk_rect(x, y, w, h),
                  NK_WINDOW_TITLE | NK_WINDOW_BORDER | NK_WINDOW_MOVABLE |
                      NK_WINDOW_SCALABLE | NK_WINDOW_MINIMIZABLE)) {
-      GUI_memory_view(gui_ctx, gui_ctx->state.nes->ppu.OAM, 64 * 4,range,poi);
+      GUI_memory_view(gui_ctx, gui_ctx->state.nes->ppu.OAM, 64 * 4, range, poi);
     }
     nk_end(gui_ctx->nk_ctx);
   }
 
   if (gui_ctx->state.show_OAS_RAM) {
-    if (nk_begin(gui_ctx->nk_ctx,
-                 "OAS"HEX_00_0F_STR,
-                 nk_rect(x, y, w, h),
+    if (nk_begin(gui_ctx->nk_ctx, "OAS" HEX_00_0F_STR, nk_rect(x, y, w, h),
                  NK_WINDOW_TITLE | NK_WINDOW_BORDER | NK_WINDOW_MOVABLE |
                      NK_WINDOW_SCALABLE | NK_WINDOW_MINIMIZABLE)) {
       GUI_memory_view(gui_ctx, gui_ctx->state.nes->ppu.sprite_scan_line_OA,
-                      8 * 4,range,poi);
+                      8 * 4, range, poi);
     }
     nk_end(gui_ctx->nk_ctx);
   }
 
   if (gui_ctx->state.show_MAP_RAM) {
     if (gui_ctx->state.nes->rom->mapper_id == 1) {
-      if (nk_begin(
-              gui_ctx->nk_ctx,
-              "001"HEX_00_0F_STR,
-              nk_rect(x, y, w, h),
-              NK_WINDOW_TITLE | NK_WINDOW_BORDER | NK_WINDOW_MOVABLE |
-                  NK_WINDOW_SCALABLE | NK_WINDOW_MINIMIZABLE)) {
+      if (nk_begin(gui_ctx->nk_ctx, "001" HEX_00_0F_STR, nk_rect(x, y, w, h),
+                   NK_WINDOW_TITLE | NK_WINDOW_BORDER | NK_WINDOW_MOVABLE |
+                       NK_WINDOW_SCALABLE | NK_WINDOW_MINIMIZABLE)) {
         GUI_memory_view(
             gui_ctx,
             ((Mapper001 *)(gui_ctx->state.nes->rom->mapper.state))->RAM,
-            32 * 1024,range,poi);
+            32 * 1024, range, poi);
       }
       nk_end(gui_ctx->nk_ctx);
     } else {
@@ -366,51 +365,56 @@ size_t poi=0;
   }
 }
 
-void GUI_asm_txt(GUI_context *gui_ctx, Disassembly6502 *dasm,
-                 NES_BUS *nes) {
-struct nk_context *ctx = gui_ctx->nk_ctx;
-// len 56
-//0000   ISB  $FFFF,X  ;ABS_XW     (0xFF) (unofficial)ISB
-const int cw=8;//ctx->style.font->width+1;
-const int h=ctx->style.font->height+3;
-if (nk_begin(ctx, "asm",
-               nk_rect(0,gui_ctx->win_height/2-60,600,470),
-              NK_WINDOW_TITLE | NK_WINDOW_MOVABLE|NK_WINDOW_SCALABLE)) {
+void GUI_asm_txt(GUI_context *gui_ctx, Disassembly6502 *dasm, NES_BUS *nes) {
+  struct nk_context *ctx = gui_ctx->nk_ctx;
+  // len 56
+  // 0000   ISB  $FFFF,X  ;ABS_XW     (0xFF) (unofficial)ISB
+  const int cw = 8; // ctx->style.font->width+1;
+  const int h = ctx->style.font->height + 3;
+  if (nk_begin(ctx, "asm", nk_rect(0, gui_ctx->win_height / 2 - 60, 600, 470),
+               NK_WINDOW_TITLE | NK_WINDOW_MOVABLE | NK_WINDOW_SCALABLE)) {
 
-CPU_state state=nes->cpu.state;
-uint32_t mapped_adr;
-uint8_t dat;
-/*uint8_t map_flag =*/nes->rom->mapper.cpu_read(nes->rom->mapper.state,state.PC,&mapped_adr,&dat);
+    CPU_state state = nes->cpu.state;
+    uint32_t mapped_adr;
+    uint8_t dat;
+    /*uint8_t map_flag =*/nes->rom->mapper.cpu_read(
+        nes->rom->mapper.state, state.PC, &mapped_adr, &dat);
 
-static const int len=12+56; 
-char line[len];
-uint32_t l_adrs[10];
-// get constant number of lines before PC
-for (int lines = 0, i = -1; lines < 10; --i) {
+    static const int len = 12 + 56;
+    char line[len];
+    uint32_t l_adrs[10];
+    // get constant number of lines before PC
+    for (int lines = 0, i = -1; lines < 10; --i) {
       uint32_t adr = (mapped_adr + i);
-      if(adr>dasm->size){adr=dasm->size-1;}
+      if (adr > dasm->size) {
+        adr = dasm->size - 1;
+      }
       l_adrs[lines] = adr;
       lines++;
     }
-// at PC    
-nk_layout_row_static(ctx, h, cw*len+20, 1);
-for (int i = 9; i >= 0; --i) {
-      snprintf(line,len,"%04X<-%04X  %s",l_adrs[i], state.PC+(i-10), dasm->lines[l_adrs[i]]);
+    // at PC
+    nk_layout_row_static(ctx, h, cw * len + 20, 1);
+    for (int i = 9; i >= 0; --i) {
+      snprintf(line, len, "%04X<-%04X  %s", l_adrs[i], state.PC + (i - 10),
+               dasm->lines[l_adrs[i]]);
       nk_label(ctx, line, NK_TEXT_LEFT);
-}
-// get constant number of lines after PC
-snprintf(line,len,"%04X<-%04X  %s",mapped_adr,state.PC, dasm->lines[mapped_adr]);
-nk_label_colored(ctx, line, NK_TEXT_LEFT, RGBAu32_to_nk_color(STYLE_YELLOW));
-for (int lines = 0, i = 1; lines < 10; ++i) {
+    }
+    // get constant number of lines after PC
+    snprintf(line, len, "%04X<-%04X  %s", mapped_adr, state.PC,
+             dasm->lines[mapped_adr]);
+    nk_label_colored(ctx, line, NK_TEXT_LEFT,
+                     RGBAu32_to_nk_color(STYLE_YELLOW));
+    for (int lines = 0, i = 1; lines < 10; ++i) {
       uint32_t adr = (mapped_adr + i);
-      if(adr>dasm->size)adr=0;
-      snprintf(line,len,"%04X<-%04X  %s",adr, state.PC+i, dasm->lines[adr]);
+      if (adr > dasm->size)
+        adr = 0;
+      snprintf(line, len, "%04X<-%04X  %s", adr, state.PC + i,
+               dasm->lines[adr]);
       nk_label(ctx, line, NK_TEXT_LEFT);
       lines++;
-}
-
-}nk_end(ctx);
-  
+    }
+  }
+  nk_end(ctx);
 }
 
 nk_bool GUI_color_txt_button(GUI_context *ctx, uint32_t rgba, const char *txt,
@@ -604,14 +608,14 @@ bta(memory[row+12]), bta(memory[row+13]), bta(memory[row+14]), bta(memory[row+15
 }
 // clang-format on
 
-
 uint16_t GUI_cpu_ram_view(GUI_context *gctx, NES_BUS *nes) {
   pair_size_t range;
-  range.x=0x100;range.y=0x1ff;
-  GUI_memory_view(gctx,nes->ram,CPU_RAM_SIZE,range,0x100+nes->cpu.state.SP);
+  range.x = 0x100;
+  range.y = 0x1ff;
+  GUI_memory_view(gctx, nes->ram, CPU_RAM_SIZE, range,
+                  0x100 + nes->cpu.state.SP);
   return 0;
 }
-  
 
 void GUI_palette_view(GUI_context *gctx, NES_BUS *nes) {
   const int pal_h = 18;
@@ -681,8 +685,7 @@ void GUI_image_refresh(GUI_context *ctx, struct nk_image *img,
 void GUI_ppu_state(GUI_context *gctx, const PPU *ppu) {
   struct nk_context *ctx = gctx->nk_ctx;
 
-  if (nk_begin(ctx, "ppu",
-               nk_rect(gctx->win_width - 900, 30, 290, 150),
+  if (nk_begin(ctx, "ppu", nk_rect(gctx->win_width - 900, 30, 290, 150),
                NK_WINDOW_TITLE | NK_WINDOW_MOVABLE | NK_WINDOW_SCALABLE)) {
     char str[16];
 
@@ -836,4 +839,59 @@ void GUI_ppu_state(GUI_context *gctx, const PPU *ppu) {
     }
   }
   nk_end(ctx);
+}
+
+void GUI_apu_dB(GUI_context *gctx, APU *apu) {
+  struct nk_context *ctx = gctx->nk_ctx;
+  static float gains[6];
+
+  char str[32];
+  if (nk_begin(ctx, "gain", nk_rect(0, 180, 128 * 2 * 2, 128 * 2 + 64 + 30),
+               NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_TITLE | NK_WINDOW_BORDER |
+                   NK_WINDOW_MOVABLE | NK_WINDOW_SCALABLE)) {
+
+    nk_layout_row_static(ctx, 30, 200, 2);
+    nk_slider_float(ctx, -60.0f, &gains[5], 0.0f, 0.1);
+    snprintf(str,32,"%5.1f dB master",gains[5]);
+    nk_label(ctx,str,NK_TEXT_ALIGN_LEFT);
+    
+    nk_layout_row_static(ctx, 30, 200, 2);
+    nk_slider_float(ctx, -60.0f, &gains[0], 0.0f, 0.1);
+    snprintf(str,32,"%5.1f dB square 1",gains[0]);
+    nk_label(ctx,str,NK_TEXT_ALIGN_LEFT);
+
+
+    nk_layout_row_static(ctx, 30, 200, 2);
+    nk_slider_float(ctx, -60.0f, &gains[1], 0.0f, 0.1);
+    snprintf(str,32,"%5.1f dB square 2",gains[1]);
+    nk_label(ctx,str,NK_TEXT_ALIGN_LEFT);
+
+
+    nk_layout_row_static(ctx, 30, 200, 2);
+    nk_slider_float(ctx, -60.0f, &gains[2], 0.0f, 0.1);
+    snprintf(str,32,"%5.1f dB triangle",gains[2]);
+    nk_label(ctx,str,NK_TEXT_ALIGN_LEFT);
+
+
+    nk_layout_row_static(ctx, 30, 200, 2);
+    nk_slider_float(ctx, -60.0f, &gains[3], 0.0f, 0.1);
+    snprintf(str,32,"%5.1f dB noise",gains[3]);
+    nk_label(ctx,str,NK_TEXT_ALIGN_LEFT);
+
+
+    nk_layout_row_static(ctx, 30, 200, 2);
+    nk_slider_float(ctx, -60.0f, &gains[4], 0.0f, 0.1);
+    snprintf(str,32,"%5.1f dB dmc",gains[4]);
+    nk_label(ctx,str,NK_TEXT_ALIGN_LEFT);
+
+
+    APU_set_dB_master(apu, gains[5]);
+    APU_set_dB_sqr1(apu, gains[0]);
+    APU_set_dB_sqr2(apu, gains[1]);
+    APU_set_dB_tr(apu, gains[2]);
+    APU_set_dB_noise(apu, gains[3]);
+    APU_set_dB_dmc(apu, gains[4]);
+
+    nk_end(ctx);
+  }
 }

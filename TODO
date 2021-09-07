@@ -1,9 +1,22 @@
 * APU
+  check triangle channel...
+  noise
+  DMC
+  mixer accurate levels
+  master volume slider to GUI
+    - and for each channel?
 
 
 * BRK dummy read stuff..
 
+* save states
+
+* rom saves
+
+* demo saving
 
 * https://github.com/michaeltyson/TPCircularBuffer
   https://abhinavag.medium.com/a-fast-circular-ring-buffer-4d102ef4d4a3
   https://github.com/smcho-kr/magic-ring-buffer
+
+

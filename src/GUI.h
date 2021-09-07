@@ -6,6 +6,7 @@
 
 #include "CPU_6502.h"
 #include "PPU.h"
+#include "APU.h"
 #include "disassembler.h"
 
 #define BYTE_TO_BINARY_FORMAT "%c%c%c%c%c%c%c%c"
@@ -29,6 +30,8 @@ typedef struct {
 } pair_size_t;
 
 typedef struct {
+  // CPU
+  nk_bool show_CPU_state;
   // RAM
   nk_bool show_CPU_RAM;
   nk_bool show_NAM_RAM;
@@ -36,6 +39,7 @@ typedef struct {
   nk_bool show_OAS_RAM;
   nk_bool show_MAP_RAM;
   // PPU
+  nk_bool show_PPU_state;
   nk_bool show_Pattern_table;
   // Debug
   nk_bool write_tracelog;
@@ -87,4 +91,7 @@ struct nk_image GUI_image_rgba(GUI_context *gctx, uint32_t *img_data,
                                uint32_t w, uint32_t h);
 void GUI_image_refresh(GUI_context *ctx, struct nk_image *img,
                        uint32_t *img_data, uint32_t w, uint32_t h);
+
+void GUI_apu_dB(GUI_context *gctx, APU *apu);
+
 #endif // GUI_H

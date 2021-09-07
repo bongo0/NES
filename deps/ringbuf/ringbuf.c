@@ -279,10 +279,10 @@ ringbuf_memcpy_from(void *dst, ringbuf_t src, size_t count)
             src->tail = src->buf;
     }
     
-    if(count + ringbuf_bytes_used(src) != bytes_used){
-        printf("Audio ring buf: reguesting:%lu used_before:%lu used_after:%lu\n",count, bytes_used, ringbuf_bytes_used(src));
-        
-    }
+    //if(count + ringbuf_bytes_used(src) != bytes_used){
+    //    printf("Audio ring buf: reguesting:%lu used_before:%lu used_after:%lu\n",count, bytes_used, ringbuf_bytes_used(src));
+    //    
+    //}
     // TODO wtf why this fails sometimes
     //assert(count + ringbuf_bytes_used(src) == bytes_used);
     return src->tail;

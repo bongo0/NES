@@ -5,9 +5,12 @@
 
 #include "../deps/blip/blip_buf.h"
 #include "../deps/ringbuf/ringbuf.h"
-#include "ring_buffer.h"
+#include "utils/ring_buffer.h"
+#include "utils/virtual_ring_buffer.h"
 
 
+float gain_to_dB(float gain);
+float dB_to_gain(float dB);
 //#define DEBUG_AUDIO
 
 // NES is mono
@@ -316,9 +319,15 @@ typedef struct {
   uint32_t out_read_pos;
   uint32_t out_write_pos;
 
+
+  // sqr1=0, sqr2=1, tr=2, noise=3, dmc=4
+  float output_gains[5],output_dBs[5];
+  float master_gain,master_dB;
+
   uint8_t *final_buf;
   //ring_buffer *r_buf;
   ringbuf_t r_buf;
+  //vr_buf *r_buf;
 
 } APU;
 
@@ -341,6 +350,14 @@ uint32_t APU_frame_counter_run(APU *apu, int32_t *cycles_to_run);
 void APU_run(APU *apu);
 void APU_tick(APU *apu);
 void APU_end_frame(APU *apu);
+
+void APU_set_dB_master(APU *apu, float dB);
+void APU_set_dB_sqr1(APU *apu, float dB);
+void APU_set_dB_sqr2(APU *apu, float dB);
+void APU_set_dB_tr(APU *apu, float dB);
+void APU_set_dB_noise(APU *apu, float dB);
+void APU_set_dB_dmc(APU *apu, float dB);
+
 void APU_free(APU *apu);
 
 #endif // APU_H

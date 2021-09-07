@@ -1,7 +1,8 @@
 #include <stdio.h>
-
-#include "../src/ring_buffer.h"
-
+#include <memory.h>
+#include "../src/utils/ring_buffer.h"
+#include "../src/utils/virtual_ring_buffer.h"
+/* 
 void print_buf(ring_buffer *b){
     
     for(int i=0; i<b->size;++i){
@@ -31,15 +32,15 @@ void print_buf_ch(ring_buffer *b){
         printf("%c",b->buf[i]);
     }
     printf("\n");
-}
+} */
 
 int main(){
-printf("\n\n\n rw:y r:r w:g\n");
+/*   printf("\n\n\n rw:y r:r w:g\n");
   ring_buffer *b = ring_buffer_new(30);
 
   char *a = "_HELLO_BUFFER";
   char *r = malloc(14);r[13]=0;
-uint8_t u;
+  uint8_t u;
 
   ring_buffer_memcpy_to(b,a,13);print_buf_ch(b);
 
@@ -51,8 +52,32 @@ uint8_t u;
   r[0]=0;u=ring_buffer_memcpy_from(b,r,13);print_buf_ch(b);printf("%d read: %s\n",u,r);
   r[0]=0;u=ring_buffer_memcpy_from(b,r,13);print_buf_ch(b);printf("%d read: %s\n",u,r);
   r[0]=0;u=ring_buffer_memcpy_from(b,r,13);print_buf_ch(b);printf("%d read: %s\n",u,r);
+ */
+
+  uint8_t *dA = malloc(50);
+  uint8_t *dB = malloc(50);
+  memset(dA,'A',50);
+  memset(dB,'B',50);
+  uint8_t *out = malloc(1<<13);
+  memset(out,0,1<<13);
+
+  vr_buf *vb = vr_buf_new(1);
+  
+  vr_buf_memcpy_to(vb,dA,50);
+  vr_buf_memcpy_from(out,vb,50);
+  printf("%s",out);
 
 
+  vr_buf_memcpy_to(vb,dA,50);
+  vr_buf_memcpy_to(vb,dB,50);
+  vr_buf_memcpy_from(out,vb,150);
+  printf("%s\n",out);
+
+
+  vr_buf_memcpy_to(vb,dA,50);
+  vr_buf_memcpy_to(vb,dB,50);
+  vr_buf_memcpy_from(out,vb,150);
+  printf("%s\n",out);
 /*   print_buf(b);
   ring_buffer_push(b,1);
   print_buf(b);

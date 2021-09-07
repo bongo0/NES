@@ -7,6 +7,8 @@
 #include "disassembler.h"
 #include "audio.h"
 #include <stdio.h>
+#include <time.h>
+#include <sched.h>
 // clang-format on
 
 void example(GUI_context *gui_ctx) { overview(gui_ctx->nk_ctx); }
@@ -41,24 +43,24 @@ void trace_func(void *data) {
     }
 
     if (d->last_PC != d->nes->cpu.state.PC) {
-      if(d->line_repeat!=0){
-        fprintf(d->trace_log_f,"^ * %u times\n",d->line_repeat);
+      if (d->line_repeat != 0) {
+        fprintf(d->trace_log_f, "^ * %u times\n", d->line_repeat);
       }
-      d->line_repeat=0;
-      uint32_t mapped_adr = nes->cpu.state.PC;// set to PC if mapper does not map it
+      d->line_repeat = 0;
+      uint32_t mapped_adr =
+          nes->cpu.state.PC; // set to PC if mapper does not map it
       uint8_t dat;
       /*uint8_t map_flag =*/nes->rom->mapper.cpu_read(
           nes->rom->mapper.state, nes->cpu.state.PC, &mapped_adr, &dat);
-      fprintf(
-          d->trace_log_f,
-          "%04X  %s    A:%02X X:%02X Y:%02X P:%02X SP:%02X CYC:%3u SL:%d\n",
-          nes->cpu.state.PC, d->dis_asm->lines[mapped_adr], nes->cpu.state.A,
-          nes->cpu.state.X, nes->cpu.state.Y, nes->cpu.state.P,
-          nes->cpu.state.SP, nes->ppu.cycle,
-          nes->ppu.scan_line);
+      fprintf(d->trace_log_f,
+              "%04X  %s    A:%02X X:%02X Y:%02X P:%02X SP:%02X CYC:%3u SL:%d\n",
+              nes->cpu.state.PC, d->dis_asm->lines[mapped_adr],
+              nes->cpu.state.A, nes->cpu.state.X, nes->cpu.state.Y,
+              nes->cpu.state.P, nes->cpu.state.SP, nes->ppu.cycle,
+              nes->ppu.scan_line);
       d->line_num++;
-    }else{
-     d->line_repeat++;
+    } else {
+      d->line_repeat++;
     }
     d->last_PC = d->nes->cpu.state.PC;
 
@@ -73,6 +75,14 @@ void trace_func(void *data) {
 
 int main(int argc, char **argv) {
 
+  /*   struct sched_param sched;
+    sched.sched_priority=99;
+    int priority_max = sched_get_priority_max(SCHED_FIFO);
+    LOG("SCHED_FIFO priority max: %d\n",priority_max);
+    if(sched_setscheduler(0, SCHED_FIFO, &sched)!=0){
+      LOG_ERROR("Could not set realtime scheduler\n");
+    } */
+
   char *rom_path;
   if (argc > 1) {
     rom_path = argv[1];
@@ -81,9 +91,9 @@ int main(int argc, char **argv) {
     exit(1);
   }
 
-//testing
+  // testing
   Audio_context a_ctx;
-//-------
+  //-------
 
   NES_ROM rom;
   ROM_load_from_disc(rom_path, &rom);
@@ -91,8 +101,7 @@ int main(int argc, char **argv) {
   NES_BUS nes;
   BUS_init(&nes, &rom);
 
-  Audio_init(&a_ctx,44100,2048,&nes.apu);
-  
+  Audio_init(&a_ctx, 44100, 1 << 12, &nes.apu);
 
   Disassembly6502 dis_asm;
   Disassemble(rom.PRG_p, rom.PRG_size, &dis_asm);
@@ -105,7 +114,7 @@ int main(int argc, char **argv) {
   d.last_PC = 0;
   d.line_num = 0;
   d.log_num = 0;
-  d.line_repeat=0;
+  d.line_repeat = 0;
   d.trace_log_f = NULL;
   d.nes = &nes;
   d.gui_ctx = &gui_ctx;
@@ -121,8 +130,12 @@ int main(int argc, char **argv) {
   int run = 0;
   int close = 0;
   int last_scanl = 0;
-  int audio=0;
+  int audio = 0;
+  double dTime = 0;
+  double dt_avr = 0;
+  size_t frame_count = 0;
   while (!close) {
+    uint64_t t_start = SDL_GetPerformanceCounter();
 
     SDL_Event event;
 
@@ -169,6 +182,7 @@ int main(int argc, char **argv) {
     if(keyboard_state[SDL_SCANCODE_L]){nes.controller[0]|=(1<<7);}//A
     // clang-format on
     nk_input_end(gui_ctx.nk_ctx);
+
     if (run) {
       while (!nes.ppu.frame_complete) {
         BUS_tick(&nes);
@@ -176,24 +190,30 @@ int main(int argc, char **argv) {
       nes.ppu.frame_complete = 0;
     }
 
-    if(audio){
-      SDL_PauseAudioDevice(a_ctx.dev_id,1);
-    }else{
-      SDL_PauseAudioDevice(a_ctx.dev_id,0);
+    if (audio) {
+      SDL_PauseAudioDevice(a_ctx.dev_id, 1);
+    } else {
+      SDL_PauseAudioDevice(a_ctx.dev_id, 0);
     }
 
-    PPU_load_pattern_table(&nes.ppu, 0);
-    PPU_load_pattern_table(&nes.ppu, 1);
+    if (gui_ctx.state.show_Pattern_table) {
+      PPU_load_pattern_table(&nes.ppu, 0);
+      PPU_load_pattern_table(&nes.ppu, 1);
+    }
 
     GUI_render_begin(&gui_ctx);
 
     GUI_menu_bar(&gui_ctx);
-    example(&gui_ctx);
-    GUI_cpu_state(&gui_ctx, &nes);
-    GUI_ppu_state(&gui_ctx, &nes.ppu);
+#if 1
+    // example(&gui_ctx);
+    if (gui_ctx.state.show_CPU_state)
+      GUI_cpu_state(&gui_ctx, &nes);
+    if (gui_ctx.state.show_PPU_state)
+      GUI_ppu_state(&gui_ctx, &nes.ppu);
     if (gui_ctx.state.show_disasm)
       GUI_asm_txt(&gui_ctx, &dis_asm, &nes);
 
+    GUI_apu_dB(&gui_ctx,&nes.apu);
     /* // TRACE LOG
     if (gui_ctx.state.write_tracelog && run) {
       if (trace_log_f == NULL) {
@@ -296,10 +316,48 @@ int main(int argc, char **argv) {
     }
     nk_end(gui_ctx.nk_ctx);
 
+#endif
     GUI_render_end(&gui_ctx);
 
-    //SDL_Delay(1000 / 60);
+    // SDL_Delay(1000 / 60);
+    uint64_t t_end = SDL_GetPerformanceCounter();
+    dTime = (t_end - t_start) / (double)SDL_GetPerformanceFrequency();
+    if (dTime * 1000.0 > 16.67)
+      printf("fps: %g  dt: %g  floor ms%u\n", 1.0 / dTime, dTime,
+             (uint32_t)(dTime * 1000.0 - 16.7));
+    dt_avr += dTime;
+    frame_count++;
+
+    // spin lock, not ideal but...
+    while (dTime * 1000.0 < 16.66666666666666666) {
+      struct timespec ts;
+      ts.tv_sec = 0;
+      ts.tv_nsec = 1;
+      nanosleep(&ts, NULL);
+
+      t_end = SDL_GetPerformanceCounter();
+      dTime = (t_end - t_start) / (double)SDL_GetPerformanceFrequency();
+    }
+    /* #define FRAME_TIME 0.01666666667
+        if(dTime<FRAME_TIME){
+          uint64_t t_sleep = SDL_GetPerformanceCounter();
+
+          struct timespec ts;
+          ts.tv_sec=0;
+          ts.tv_nsec = (int64_t)(((FRAME_TIME-dTime)*10e8)/10.0);
+          //printf("ts nsec: %ld\n",ts.tv_nsec);
+          nanosleep(&ts,NULL);
+          uint64_t t_woke = SDL_GetPerformanceCounter();
+          double dSleep =
+       (t_woke-t_sleep)/(double)SDL_GetPerformanceFrequency();
+          while(dTime+dSleep<FRAME_TIME){
+            t_woke = SDL_GetPerformanceCounter();
+            dSleep = (t_woke-t_sleep)/(double)SDL_GetPerformanceFrequency();
+          }
+
+        } */
   }
+  printf("avr game loop ms: %g\n", ((dt_avr) / (double)frame_count));
 
   GUI_quit(&gui_ctx);
   Audio_quit();

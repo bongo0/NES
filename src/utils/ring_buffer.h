@@ -8,8 +8,8 @@
 typedef struct ring_buffer {
 
   uint8_t *buf;
-  uint8_t *read;  // read head position
-  uint8_t *write; // write tail position
+  uint8_t *read;  // read tail position
+  uint8_t *write; // write head position
   size_t free_bytes;
   size_t size; // in bytes
 } ring_buffer;

@@ -1,5 +1,14 @@
 #include "APU.h"
 #include "timers.h"
+
+float dB_to_gain(float dB) { return pow(10.0, dB / 20.0); }
+
+float gain_to_dB(float gain) {
+  if (gain <= 0)
+    return -INFINITY;
+  return 20.0 * log10(gain);
+}
+
 //#############################################################
 // DIVIDER
 //#############################################################
@@ -262,15 +271,15 @@ int8_t APU_square_channel_tick(APU_square_channel *sq) { // OK
   // TODO: output the sample
   int8_t sample = APU_square_channel_get_output(sq);
   int16_t delta = (int8_t)sample - (int8_t)sq->last_output;
-  if (delta!=0) {
-    blip_add_delta(sq->out, sq->prev_cycle, delta*1000);
+  if (delta != 0) {
+    blip_add_delta(sq->out, sq->prev_cycle, delta * 1000);
   }
 
 #ifdef DEBUG_AUDIO
   if (sample != 0)
     sq->start_rec = 1; // first nonzero sample starts rec
   if (sq->start_rec) {
-  //  fprintf(sq->sqr_f, "%d\n", sample);
+    //  fprintf(sq->sqr_f, "%d\n", sample);
   }
 #endif
 
@@ -333,10 +342,10 @@ void APU_triangle_channel_tick(APU_triangle_channel *tr) {
   }
 
   int16_t delta = (int8_t)sample - (int8_t)tr->last_output;
-  if (delta!=0) {
-    blip_add_delta(tr->out, tr->prev_cycle, delta*1000);
+  if (delta != 0) {
+    blip_add_delta(tr->out, tr->prev_cycle, delta * 1000);
   }
-  tr->last_output=sample;
+  tr->last_output = sample;
 #ifdef DEBUG_AUDIO
   if (sample != 0)
     tr->start_rec = 1; // first nonzero sample starts rec
@@ -538,10 +547,9 @@ void APU_init(APU *apu) {
   blip_set_rates(apu->sqr1.out, 1789773, 44100);
   blip_set_rates(apu->sqr2.out, 1789773, 44100);
   blip_set_rates(apu->tr.out, 1789773, 44100);
-  apu->sqr1.out_buf = malloc(AUDIO_FRAME_SIZE* sizeof(int16_t));
-  apu->sqr2.out_buf = malloc(AUDIO_FRAME_SIZE* sizeof(int16_t));
-  apu->tr.out_buf = malloc(AUDIO_FRAME_SIZE* sizeof(int16_t));
-
+  apu->sqr1.out_buf = malloc(AUDIO_FRAME_SIZE * sizeof(int16_t));
+  apu->sqr2.out_buf = malloc(AUDIO_FRAME_SIZE * sizeof(int16_t));
+  apu->tr.out_buf = malloc(AUDIO_FRAME_SIZE * sizeof(int16_t));
 
   apu->out_buf = malloc(AUDIO_FRAME_SIZE * sizeof(int16_t));
 
@@ -552,17 +560,22 @@ void APU_init(APU *apu) {
   apu->current_step = 0;
   apu->write_delay_0x4017 = 0;
 
-
-#define FINAL_AUDIO_BUF_SIZE 2<<14
-  //apu->final_buf = malloc(FINAL_AUDIO_BUF_SIZE);
-  //memset(apu->final_buf,0,FINAL_AUDIO_BUF_SIZE);
-  //apu->r_buf=ring_buffer_new(FINAL_AUDIO_BUF_SIZE);
-  apu->r_buf=ringbuf_new(FINAL_AUDIO_BUF_SIZE);
-
-  apu->fill_audio_buffer=&APU_fill_audio_buffer;
-  apu->out_read_pos=0;
-  apu->out_write_pos=0;
-
+#define FINAL_AUDIO_BUF_SIZE 2 << 14
+  // apu->final_buf = malloc(FINAL_AUDIO_BUF_SIZE);
+  // memset(apu->final_buf,0,FINAL_AUDIO_BUF_SIZE);
+  // apu->r_buf=ring_buffer_new(FINAL_AUDIO_BUF_SIZE);
+  apu->r_buf = ringbuf_new(FINAL_AUDIO_BUF_SIZE);
+  // apu->r_buf=vr_buf_new(3);
+  // printf("vr_buf size: %lu\n",apu->r_buf->size);
+  apu->fill_audio_buffer = &APU_fill_audio_buffer;
+  apu->out_read_pos = 0;
+  apu->out_write_pos = 0;
+  apu->output_gains[0] = 1.0;
+  apu->output_gains[1] = 1.0;
+  apu->output_gains[2] = 1.0;
+  apu->output_gains[3] = 1.0;
+  apu->output_gains[4] = 1.0;
+  apu->master_gain = 1.0;
 }
 
 void APU_frame_counter_reset(APU *apu, uint8_t soft_reset) {
@@ -697,7 +710,7 @@ void APU_run(APU *apu) { // OK
   }
 }
 
-CLOCK_INIT(into)
+// CLOCK_INIT(into)
 
 void APU_tick(APU *apu) { // OK
 
@@ -711,29 +724,31 @@ void APU_tick(APU *apu) { // OK
     // TODO noise dmc
 
     blip_end_frame(apu->sqr1.out, apu->cycle);
-    size_t sample_count =
-        blip_read_samples(apu->sqr1.out, apu->sqr1.out_buf, AUDIO_FRAME_SIZE, 0);
+    size_t sample_count = blip_read_samples(apu->sqr1.out, apu->sqr1.out_buf,
+                                            AUDIO_FRAME_SIZE, 0);
 
     blip_end_frame(apu->sqr2.out, apu->cycle);
-    sample_count =
-        blip_read_samples(apu->sqr2.out, apu->sqr2.out_buf, AUDIO_FRAME_SIZE, 0);
+    sample_count = blip_read_samples(apu->sqr2.out, apu->sqr2.out_buf,
+                                     AUDIO_FRAME_SIZE, 0);
 
     blip_end_frame(apu->tr.out, apu->cycle);
     sample_count =
         blip_read_samples(apu->tr.out, apu->tr.out_buf, AUDIO_FRAME_SIZE, 0);
 
-
-    for(size_t i = 0; i<sample_count;++i){
-      apu->out_buf[i] = apu->sqr1.out_buf[i]+apu->sqr2.out_buf[i]+apu->tr.out_buf[i]/2;
+    for (size_t i = 0; i < sample_count; ++i) {
+      apu->out_buf[i] = (int16_t)(
+          apu->master_gain * ((apu->sqr1.out_buf[i] * apu->output_gains[0]) +
+                              (apu->sqr2.out_buf[i] * apu->output_gains[1]) +
+                              (apu->tr.out_buf[i] * apu->output_gains[2])));
     }
 
-CLOCK_START(into);
-    //ring_buffer_memcpy_to(apu->r_buf, apu->out_buf,2*sample_count);
-    ringbuf_memcpy_into(apu->r_buf, apu->out_buf,2*sample_count);
-CLOCK_END(into);
-//printf("free: %lu / %lu\n",apu->r_buf->free_bytes,FINAL_AUDIO_BUF_SIZE);
+    // CLOCK_START(into);
+    // ring_buffer_memcpy_to(apu->r_buf, apu->out_buf,2*sample_count);
+    ringbuf_memcpy_into(apu->r_buf, apu->out_buf, 2 * sample_count);
+    // vr_buf_memcpy_to(apu->r_buf, apu->out_buf,2*sample_count);
+    // CLOCK_END(into);
+    // printf("free: %lu / %lu\n",apu->r_buf->free_bytes,FINAL_AUDIO_BUF_SIZE);
 
-    
     apu->cycle = 0;
     apu->prev_cycle = 0;
 
@@ -765,25 +780,21 @@ void APU_reset(APU *apu, uint8_t soft_reset) {
 
   blip_clear(apu->sqr1.out);
   blip_clear(apu->sqr2.out);
-
 }
 
+// CLOCK_INIT(from)
 
-CLOCK_INIT(from)
-
-void APU_fill_audio_buffer(void *apu_, uint8_t *stream, int len/*in bytes*/) {
+void APU_fill_audio_buffer(void *apu_, uint8_t *stream, int len /*in bytes*/) {
   APU *apu = (APU *)apu_;
 
-CLOCK_START(from);
-  //ring_buffer_memcpy_n_from(apu->r_buf,stream, len);
-  ringbuf_memcpy_from(stream,apu->r_buf, len);
-CLOCK_END(from);
-
+  // CLOCK_START(from);
+  // ring_buffer_memcpy_n_from(apu->r_buf,stream, len);
+  ringbuf_memcpy_from(stream, apu->r_buf, len);
+  // vr_buf_memcpy_from(stream, apu->r_buf, len);
+  // CLOCK_END(from);
 }
 
-
-
-void APU_free(APU *apu){
+void APU_free(APU *apu) {
   blip_delete(apu->sqr1.out);
   blip_delete(apu->sqr2.out);
   blip_delete(apu->tr.out);
@@ -794,15 +805,56 @@ void APU_free(APU *apu){
 
   free(apu->out_buf);
 
-  printf("\nfrom: avr: %lf  full: %lf   n:%lu\n",
-    CLOCK_RESULT_AVERAGE_uS(from),
-    CLOCK_RESULT_FULL_TIME_uS(from),
-    CLOCK_RESULT_N_MEAS(from)
-    );
+  // ring_buffer_free(apu->r_buf);
+  ringbuf_free(&apu->r_buf);
+  // vr_buf_free(apu->r_buf);
 
-  printf("\ninto: avr: %lf  full: %lf   n:%lu\n",
-    CLOCK_RESULT_AVERAGE_uS(into),
-    CLOCK_RESULT_FULL_TIME_uS(into),
-    CLOCK_RESULT_N_MEAS(into)
-    );
+  // printf("\nfrom: avr: %lf  full: %lf   n:%lu\n",
+  //  CLOCK_RESULT_AVERAGE_uS(from),
+  //  CLOCK_RESULT_FULL_TIME_uS(from),
+  //  CLOCK_RESULT_N_MEAS(from)
+  //  );
+  //
+  // printf("\ninto: avr: %lf  full: %lf   n:%lu\n",
+  //  CLOCK_RESULT_AVERAGE_uS(into),
+  //  CLOCK_RESULT_FULL_TIME_uS(into),
+  //  CLOCK_RESULT_N_MEAS(into)
+  //  );
+}
+
+void APU_set_dB_master(APU *apu, float dB) {
+  if (apu->master_dB == dB)
+    return;
+  apu->master_dB = dB;
+  apu->master_gain = dB_to_gain(dB);
+}
+void APU_set_dB_sqr1(APU *apu, float dB) {
+  if (apu->output_dBs[0] == dB)
+    return;
+  apu->output_dBs[0] = dB;
+  apu->output_gains[0] = dB_to_gain(dB);
+}
+void APU_set_dB_sqr2(APU *apu, float dB) {
+  if (apu->output_dBs[1] == dB)
+    return;
+  apu->output_dBs[1] = dB;
+  apu->output_gains[1] = dB_to_gain(dB);
+}
+void APU_set_dB_tr(APU *apu, float dB) {
+  if (apu->output_dBs[2] == dB)
+    return;
+  apu->output_dBs[2] = dB;
+  apu->output_gains[2] = dB_to_gain(dB);
+}
+void APU_set_dB_noise(APU *apu, float dB) {
+  if (apu->output_dBs[3] == dB)
+    return;
+  apu->output_dBs[3] = dB;
+  apu->output_gains[3] = dB_to_gain(dB);
+}
+void APU_set_dB_dmc(APU *apu, float dB) {
+  if (apu->output_dBs[4] == dB)
+    return;
+  apu->output_dBs[4] = dB;
+  apu->output_gains[4] = dB_to_gain(dB);
 }

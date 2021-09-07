@@ -83,7 +83,7 @@ uint8_t PPU_cpu_read(PPU *ppu, uint16_t adr) {
   case 0x0000: // Control
     break;
   case 0x0001: // Mask
-    //data = ppu->OAM_adr; // PPU open buss weirdness
+    // data = ppu->OAM_adr; // PPU open buss weirdness
     break;
   case 0x0002: // Status --- unused bits are noise usually what was last in the
                // data buffer
@@ -177,7 +177,7 @@ void PPU_cpu_write(PPU *ppu, uint16_t adr, uint8_t data) {
 
 uint8_t PPU_read(PPU *ppu, uint16_t adr) {
   adr &= 0x3fff;
-  uint8_t data=0;
+  uint8_t data = 0;
   if (ROM_ppu_read(ppu->rom, adr, &data))
     return data;
 
@@ -220,7 +220,7 @@ uint8_t PPU_read(PPU *ppu, uint16_t adr) {
       adr = 0x000C;
     data = ppu->palette_ram[adr] & (ppu->state.mask.GRAYSCALE ? 0x30 : 0x3F);
     // "shadow" read .... or not wtf
-    //ppu->state.data_buf = ppu->palette_ram[adr];
+    // ppu->state.data_buf = ppu->palette_ram[adr];
   }
   return data;
 }
@@ -272,12 +272,12 @@ void PPU_write(PPU *ppu, uint16_t adr, uint8_t data) {
   }
 }
 
-uint32_t PPU_get_color_from_palette_ram(PPU *ppu, uint16_t palette_idx,
-                                        uint8_t pixel_val) {
-  uint8_t color_idx = PPU_read(ppu, 0x3f00 + (palette_idx << 2) + pixel_val) &
-                      0x3f; /*0x3f00 = base palette address*/
-  return PPU_PALETTE_RGBA[0][color_idx];
-}
+// uint32_t PPU_get_color_from_palette_ram(PPU *ppu, uint16_t palette_idx,
+//                                        uint8_t pixel_val) {
+//  uint8_t color_idx = PPU_read(ppu, 0x3f00 + (palette_idx << 2) + pixel_val) &
+//                      0x3f; /*0x3f00 = base palette address*/
+//  return PPU_PALETTE_RGBA[0][color_idx];
+//}
 
 void PPU_load_pattern_table(PPU *ppu, uint8_t table_n /*0 or 1*/) {
   // uint32_t test[4]={0x222222ff, 0x888888ff, 0xaaaaaaff, 0xffffffff};
@@ -353,7 +353,7 @@ static inline void transfer_adr_y(PPU *ppu) {
   }
 }
 
-static inline void setup_shifters(PPU *ppu) {
+/* static inline void setup_shifters(PPU *ppu) {
 
   ppu->low_bg_shifter = (ppu->low_bg_shifter & 0xff00) | ppu->next_bg_tile_lsb;
   ppu->high_bg_shifter =
@@ -364,9 +364,20 @@ static inline void setup_shifters(PPU *ppu) {
   ppu->high_bg_shifter_attrib =
       (ppu->high_bg_shifter_attrib & 0xFF00) |
       ((ppu->next_bg_tile_attrib & (1 << 1)) ? 0xFF : 0x00);
-}
+} */
 
-static inline void update_shifters(PPU *ppu) {
+#define setup_shifters(ppu)                                                    \
+  ppu->low_bg_shifter =                                                        \
+      (ppu->low_bg_shifter & 0xff00) | ppu->next_bg_tile_lsb;                  \
+  ppu->high_bg_shifter =                                                       \
+      (ppu->high_bg_shifter & 0xff00) | ppu->next_bg_tile_msb;                 \
+  ppu->low_bg_shifter_attrib = (ppu->low_bg_shifter_attrib & 0xFF00) |         \
+                               ((ppu->next_bg_tile_attrib & 1) ? 0xFF : 0x00); \
+  ppu->high_bg_shifter_attrib =                                                \
+      (ppu->high_bg_shifter_attrib & 0xFF00) |                                 \
+      ((ppu->next_bg_tile_attrib & (1 << 1)) ? 0xFF : 0x00);
+
+/* static inline void update_shifters(PPU *ppu) {
   if (ppu->state.mask.RENDER_BACKGROUND) {
     ppu->low_bg_shifter <<= 1;
     ppu->high_bg_shifter <<= 1;
@@ -385,7 +396,24 @@ static inline void update_shifters(PPU *ppu) {
       }
     }
   }
-}
+} */
+#define update_shifters(ppu)                                                   \
+  if (ppu->state.mask.RENDER_BACKGROUND) {                                     \
+    ppu->low_bg_shifter <<= 1;                                                 \
+    ppu->high_bg_shifter <<= 1;                                                \
+    ppu->high_bg_shifter_attrib <<= 1;                                         \
+    ppu->low_bg_shifter_attrib <<= 1;                                          \
+  }                                                                            \
+  if (ppu->state.mask.RENDER_SPRITES && ppu->cycle >= 1 && ppu->cycle < 258) { \
+    for (int i = 0; i < ppu->sprite_count; i++) {                              \
+      if (ppu->sprite_scan_line_OA[OAM_x(i)] > 0) {                            \
+        ppu->sprite_scan_line_OA[OAM_x(i)]--;                                  \
+      } else {                                                                 \
+        ppu->sprite_pattern_low[i] <<= 1;                                      \
+        ppu->sprite_pattern_high[i] <<= 1;                                     \
+      }                                                                        \
+    }                                                                          \
+  }
 
 static inline uint8_t reverse_byte(uint8_t b) {
   b = (b & 0xF0) >> 4 | (b & 0x0F) << 4;
@@ -416,16 +444,18 @@ void PPU_tick(PPU *ppu) {
       // Clear the sprite zero hit flag
       ppu->state.status.SPRITE_ZERO_HIT = 0;
       // Clear Shifters
-      for (int i = 0; i < 8; i++) {
-        ppu->sprite_pattern_low[i] = 0;
-        ppu->sprite_pattern_high[i] = 0;
-      }
+      //for (int i = 0; i < 8; i++) {
+      //   ppu->sprite_pattern_low[0] = 0;
+      //  ppu->sprite_pattern_high[0] = 0;
+      //}
+      memset(ppu->sprite_pattern_low,0,8);
+      memset(ppu->sprite_pattern_high,0,8);
     }
     // ...
     if ((ppu->cycle >= 2 && ppu->cycle < 258) ||
         (ppu->cycle >= 321 && ppu->cycle < 338)) {
       update_shifters(ppu);
-      switch ((ppu->cycle - 1) % 8) {
+      switch ((ppu->cycle - 1) & 0x7/*%8*/) {
       case 0:
         setup_shifters(ppu);
         // Fetch the next background tile ID
@@ -676,12 +706,12 @@ void PPU_tick(PPU *ppu) {
   //###############################################################
   //###############################################################
 
-  //if (ppu->scan_line >= NMI_SCAN_LINE && ppu->scan_line < 261) {
-    if (ppu->scan_line == NMI_SCAN_LINE && ppu->cycle == 1) {
-      ppu->state.status.VERTICAL_BLANK = 1;
-      if (ppu->state.control.ENABLE_NMI)
-        ppu->state.nmi = 1;
-    }
+  // if (ppu->scan_line >= NMI_SCAN_LINE && ppu->scan_line < 261) {
+  if (ppu->scan_line == NMI_SCAN_LINE && ppu->cycle == 1) {
+    ppu->state.status.VERTICAL_BLANK = 1;
+    if (ppu->state.control.ENABLE_NMI)
+      ppu->state.nmi = 1;
+  }
   //}
 
   //###############################################################
@@ -823,7 +853,7 @@ void PPU_tick(PPU *ppu) {
   if (ppu->cycle >= 341) {
     ppu->cycle = 0;
     ppu->scan_line++;
-    if (ppu->scan_line >= VBLANK_END+1) {
+    if (ppu->scan_line >= VBLANK_END + 1) {
       ppu->scan_line = -1;
       ppu->frame_complete = 1;
       ppu->odd_frame = !ppu->odd_frame;

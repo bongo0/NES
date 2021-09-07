@@ -149,8 +149,9 @@ uint8_t PPU_cpu_read(PPU *ppu, uint16_t adr);
 void PPU_cpu_write(PPU *ppu, uint16_t adr, uint8_t data);
 uint8_t PPU_read(PPU *ppu, uint16_t adr);
 void PPU_write(PPU *ppu, uint16_t adr, uint8_t data);
-uint32_t PPU_get_color_from_palette_ram(PPU *ppu, uint16_t palette_idx,
-                                        uint8_t pixel_val);
+#define PPU_get_color_from_palette_ram(ppu,palette_idx,pixel_val) (PPU_PALETTE_RGBA[0][PPU_read(ppu, 0x3f00 + (palette_idx << 2) + pixel_val) & 0x3f])
+//uint32_t PPU_get_color_from_palette_ram(PPU *ppu, uint16_t palette_idx,
+//                                        uint8_t pixel_val);
 void PPU_load_pattern_table(PPU *ppu, uint8_t table_n /*0 or 1*/);
 
 typedef enum {
