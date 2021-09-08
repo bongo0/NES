@@ -178,8 +178,9 @@ int main(int argc, char **argv) {
     if(keyboard_state[SDL_SCANCODE_W]){           nes.controller[0]|=(1<<3);}//Up
     if(keyboard_state[SDL_SCANCODE_H]){           nes.controller[0]|=(1<<4);}//Start
     if(keyboard_state[SDL_SCANCODE_J]){           nes.controller[0]|=(1<<5);}//Select
-    if(keyboard_state[SDL_SCANCODE_K]){ nes.controller[0]|=(1<<6);}//B
-    if(keyboard_state[SDL_SCANCODE_L]){nes.controller[0]|=(1<<7);}//A
+    if(keyboard_state[SDL_SCANCODE_K]){           nes.controller[0]|=(1<<6);}//B
+    if(keyboard_state[SDL_SCANCODE_L]){           nes.controller[0]|=(1<<7);}//A
+    nes.controller[1]=0;
     // clang-format on
     nk_input_end(gui_ctx.nk_ctx);
 
@@ -205,7 +206,7 @@ int main(int argc, char **argv) {
 
     GUI_menu_bar(&gui_ctx);
 #if 1
-    // example(&gui_ctx);
+    //example(&gui_ctx);
     if (gui_ctx.state.show_CPU_state)
       GUI_cpu_state(&gui_ctx, &nes);
     if (gui_ctx.state.show_PPU_state)
@@ -213,7 +214,10 @@ int main(int argc, char **argv) {
     if (gui_ctx.state.show_disasm)
       GUI_asm_txt(&gui_ctx, &dis_asm, &nes);
 
-    GUI_apu_dB(&gui_ctx,&nes.apu);
+    if (gui_ctx.state.show_gains)GUI_apu_dB(&gui_ctx,&nes.apu);
+    if (gui_ctx.state.show_controller0)GUI_NES_controller(&gui_ctx,&nes.controller[0],0);
+    if (gui_ctx.state.show_controller1)GUI_NES_controller(&gui_ctx,&nes.controller[1],1);
+
     /* // TRACE LOG
     if (gui_ctx.state.write_tracelog && run) {
       if (trace_log_f == NULL) {

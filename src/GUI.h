@@ -30,6 +30,11 @@ typedef struct {
 } pair_size_t;
 
 typedef struct {
+  // controls
+  nk_bool show_gains;
+  nk_bool show_controller0;
+  nk_bool show_controller1;
+
   // CPU
   nk_bool show_CPU_state;
   // RAM
@@ -93,5 +98,7 @@ void GUI_image_refresh(GUI_context *ctx, struct nk_image *img,
                        uint32_t *img_data, uint32_t w, uint32_t h);
 
 void GUI_apu_dB(GUI_context *gctx, APU *apu);
+
+void GUI_NES_controller(GUI_context *gctx, uint8_t *c_state, uint8_t i);
 
 #endif // GUI_H

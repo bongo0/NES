@@ -103,6 +103,11 @@ void GUI_init(GUI_context *ctx, NES_BUS *nes) {
 
   ctx->state.show_PPU_state = nk_false;
   ctx->state.show_CPU_state = nk_false;
+
+  ctx->state.show_gains=nk_false;
+  ctx->state.show_controller0=nk_false;
+  ctx->state.show_controller1=nk_false;
+
 }
 
 int GUI_process_events(GUI_context *ctx) {
@@ -158,7 +163,7 @@ void GUI_menu_bar(GUI_context *gui_ctx) {
   if (nk_begin(ctx, "Menu", nk_rect(0, 0, gui_ctx->win_width, 30),
                NK_WINDOW_NO_SCROLLBAR)) {
     nk_menubar_begin(ctx);
-    nk_layout_row_begin(ctx, NK_STATIC, 25, 5);
+    nk_layout_row_begin(ctx, NK_STATIC, 25, 6);
     nk_layout_row_push(ctx, 45);
 
     if (nk_menu_begin_label(ctx, "FILE", NK_TEXT_LEFT, nk_vec2(120, 200))) {
@@ -169,6 +174,14 @@ void GUI_menu_bar(GUI_context *gui_ctx) {
       }
       if (nk_menu_item_label(ctx, "Load state", NK_TEXT_LEFT)) {
       }
+      nk_menu_end(ctx);
+    }
+
+    if (nk_menu_begin_label(ctx, "OPTIONS", NK_TEXT_LEFT, nk_vec2(120, 200))) {
+      nk_layout_row_dynamic(ctx, 25, 1);
+      nk_checkbox_label(ctx, "Controller 0", &gui_ctx->state.show_controller0);
+      nk_checkbox_label(ctx, "Controller 1", &gui_ctx->state.show_controller1);
+
       nk_menu_end(ctx);
     }
 
@@ -185,6 +198,17 @@ void GUI_menu_bar(GUI_context *gui_ctx) {
       nk_menu_end(ctx);
     }
 
+
+
+    if (nk_menu_begin_label(ctx, "CPU", NK_TEXT_LEFT, nk_vec2(120, 200))) {
+      nk_layout_row_dynamic(ctx, 25, 1);
+      nk_checkbox_label(ctx, "CPU state", &gui_ctx->state.show_CPU_state);
+      nk_checkbox_label(ctx, "Disassembly", &gui_ctx->state.show_disasm);
+      nk_checkbox_label(ctx, "Trace log", &gui_ctx->state.write_tracelog);
+
+      nk_menu_end(ctx);
+    }
+
     if (nk_menu_begin_label(ctx, "PPU", NK_TEXT_LEFT, nk_vec2(120, 200))) {
       nk_layout_row_dynamic(ctx, 25, 1);
       nk_checkbox_label(ctx, "Pattern table",
@@ -194,21 +218,9 @@ void GUI_menu_bar(GUI_context *gui_ctx) {
       nk_menu_end(ctx);
     }
 
-    if (nk_menu_begin_label(ctx, "OPTIONS", NK_TEXT_LEFT, nk_vec2(120, 200))) {
+  if (nk_menu_begin_label(ctx, "APU", NK_TEXT_LEFT, nk_vec2(120, 200))) {
       nk_layout_row_dynamic(ctx, 25, 1);
-      if (nk_menu_item_label(ctx, "Controls", NK_TEXT_LEFT)) {
-      }
-      if (nk_menu_item_label(ctx, "About", NK_TEXT_LEFT)) {
-      }
-      nk_menu_end(ctx);
-    }
-
-    if (nk_menu_begin_label(ctx, "CPU", NK_TEXT_LEFT, nk_vec2(120, 200))) {
-      nk_layout_row_dynamic(ctx, 25, 1);
-      nk_checkbox_label(ctx, "CPU state", &gui_ctx->state.show_CPU_state);
-      nk_checkbox_label(ctx, "Disassembly", &gui_ctx->state.show_disasm);
-      nk_checkbox_label(ctx, "Trace log", &gui_ctx->state.write_tracelog);
-
+      nk_checkbox_label(ctx, "Volume", &gui_ctx->state.show_gains);
       nk_menu_end(ctx);
     }
 
@@ -846,44 +858,39 @@ void GUI_apu_dB(GUI_context *gctx, APU *apu) {
   static float gains[6];
 
   char str[32];
-  if (nk_begin(ctx, "gain", nk_rect(0, 180, 128 * 2 * 2, 128 * 2 + 64 + 30),
+  if (nk_begin(ctx, "gain", nk_rect(0, 180, 350, 245),
                NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_TITLE | NK_WINDOW_BORDER |
-                   NK_WINDOW_MOVABLE | NK_WINDOW_SCALABLE)) {
+                   NK_WINDOW_MOVABLE)) {
 
     nk_layout_row_static(ctx, 30, 200, 2);
     nk_slider_float(ctx, -60.0f, &gains[5], 0.0f, 0.1);
-    snprintf(str,32,"%5.1f dB master",gains[5]);
-    nk_label(ctx,str,NK_TEXT_ALIGN_LEFT);
-    
+    snprintf(str, 32, "%5.1f dB master", gains[5]);
+    nk_label(ctx, str, NK_TEXT_ALIGN_LEFT);
+
     nk_layout_row_static(ctx, 30, 200, 2);
     nk_slider_float(ctx, -60.0f, &gains[0], 0.0f, 0.1);
-    snprintf(str,32,"%5.1f dB square 1",gains[0]);
-    nk_label(ctx,str,NK_TEXT_ALIGN_LEFT);
-
+    snprintf(str, 32, "%5.1f dB square 1", gains[0]);
+    nk_label(ctx, str, NK_TEXT_ALIGN_LEFT);
 
     nk_layout_row_static(ctx, 30, 200, 2);
     nk_slider_float(ctx, -60.0f, &gains[1], 0.0f, 0.1);
-    snprintf(str,32,"%5.1f dB square 2",gains[1]);
-    nk_label(ctx,str,NK_TEXT_ALIGN_LEFT);
-
+    snprintf(str, 32, "%5.1f dB square 2", gains[1]);
+    nk_label(ctx, str, NK_TEXT_ALIGN_LEFT);
 
     nk_layout_row_static(ctx, 30, 200, 2);
     nk_slider_float(ctx, -60.0f, &gains[2], 0.0f, 0.1);
-    snprintf(str,32,"%5.1f dB triangle",gains[2]);
-    nk_label(ctx,str,NK_TEXT_ALIGN_LEFT);
-
+    snprintf(str, 32, "%5.1f dB triangle", gains[2]);
+    nk_label(ctx, str, NK_TEXT_ALIGN_LEFT);
 
     nk_layout_row_static(ctx, 30, 200, 2);
     nk_slider_float(ctx, -60.0f, &gains[3], 0.0f, 0.1);
-    snprintf(str,32,"%5.1f dB noise",gains[3]);
-    nk_label(ctx,str,NK_TEXT_ALIGN_LEFT);
-
+    snprintf(str, 32, "%5.1f dB noise", gains[3]);
+    nk_label(ctx, str, NK_TEXT_ALIGN_LEFT);
 
     nk_layout_row_static(ctx, 30, 200, 2);
     nk_slider_float(ctx, -60.0f, &gains[4], 0.0f, 0.1);
-    snprintf(str,32,"%5.1f dB dmc",gains[4]);
-    nk_label(ctx,str,NK_TEXT_ALIGN_LEFT);
-
+    snprintf(str, 32, "%5.1f dB dmc", gains[4]);
+    nk_label(ctx, str, NK_TEXT_ALIGN_LEFT);
 
     APU_set_dB_master(apu, gains[5]);
     APU_set_dB_sqr1(apu, gains[0]);
@@ -892,6 +899,100 @@ void GUI_apu_dB(GUI_context *gctx, APU *apu) {
     APU_set_dB_noise(apu, gains[3]);
     APU_set_dB_dmc(apu, gains[4]);
 
+    nk_end(ctx);
+  }
+}
+
+nk_bool GUI_color_round_button(struct nk_context *ctx, uint32_t rgba,uint32_t rgba_active,
+                               float rounding) {
+  static struct nk_style_button color_round_btn;
+  color_round_btn.rounding = rounding;
+  color_round_btn.normal.data.color = RGBAu32_to_nk_color(rgba);
+  color_round_btn.hover.data.color = RGBAu32_to_nk_color(rgba);
+  color_round_btn.active.data.color = RGBAu32_to_nk_color(rgba_active);
+
+  return nk_button_text_styled(ctx, &color_round_btn, "", 0);
+}
+
+void GUI_NES_controller(GUI_context *gctx, uint8_t *c_state, uint8_t i) {
+  struct nk_context *ctx = gctx->nk_ctx;
+
+ nk_bool b_right = (*c_state)&(1<<0);//Right
+ nk_bool b_left  = (*c_state)&(1<<1);//Left
+ nk_bool b_down  = (*c_state)&(1<<2);//Down
+ nk_bool b_up    = (*c_state)&(1<<3);//Up
+ nk_bool b_start = (*c_state)&(1<<4);//Start
+ nk_bool b_select= (*c_state)&(1<<5);//Select
+ nk_bool b_B     = (*c_state)&(1<<6);//B
+ nk_bool b_A     = (*c_state)&(1<<7);//A
+
+  if (nk_begin(ctx, i?"ctrl 1":"ctrl 0", nk_rect(0, 180, 300, 128),
+               NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_TITLE | NK_WINDOW_BORDER |
+                   NK_WINDOW_MOVABLE)) {
+struct nk_rect lb;
+const uint32_t b = 0x2f2f2f00;// brighter when pressed
+// clang-format off
+nk_layout_space_begin(ctx,NK_STATIC,16,16);
+    lb.h=90;lb.w=290;lb.x=0;lb.y=0;
+    nk_layout_space_push(ctx,lb);
+    GUI_color_round_button(ctx, STYLE_DARK_GREY,STYLE_DARK_GREY, 5);
+// meh hack grey quad
+    lb.h=25;lb.w=100;lb.x=90;lb.y=40;
+    nk_layout_space_push(ctx,lb);
+    GUI_color_round_button(ctx, STYLE_LIGHT_GREY,STYLE_LIGHT_GREY, 5);
+    
+
+    lb.h=30;lb.w=30;lb.x=240;lb.y=32;
+    nk_layout_space_push(ctx,lb);
+    GUI_color_round_button(ctx, STYLE_RED+(b_A?b:0) ,STYLE_RED + b, 14.5);
+    lb.h=30;lb.w=30;lb.x=240;lb.y=32+30;
+    nk_layout_space_push(ctx,lb);
+    nk_label_colored(ctx,"A",NK_TEXT_ALIGN_RIGHT,RGBAu32_to_nk_color(STYLE_RED));
+
+    lb.h=30;lb.w=30;lb.x=200;lb.y=32;
+    nk_layout_space_push(ctx,lb);
+    GUI_color_round_button(ctx, STYLE_RED+(b_B?b:0),STYLE_RED + b, 14.5);
+    lb.h=30;lb.w=30;lb.x=200;lb.y=32+30;
+    nk_layout_space_push(ctx,lb);
+    nk_label_colored(ctx,"B",NK_TEXT_ALIGN_RIGHT,RGBAu32_to_nk_color(STYLE_RED));
+
+    lb.h=10;lb.w=30;lb.x=150;lb.y=32+15;
+    nk_layout_space_push(ctx,lb);
+    GUI_color_round_button(ctx, STYLE_DARK_GREY+(b_start?b:0),STYLE_GREY, 3);
+    lb.h=30;lb.w=30;lb.x=150-3;lb.y=20;
+    nk_layout_space_push(ctx,lb);
+    nk_label_colored(ctx,"start",NK_TEXT_ALIGN_RIGHT,RGBAu32_to_nk_color(STYLE_RED));
+
+    lb.h=10;lb.w=30;lb.x=100;lb.y=32+15;
+    nk_layout_space_push(ctx,lb);
+    GUI_color_round_button(ctx, STYLE_DARK_GREY+(b_select?b:0),STYLE_GREY, 3);
+    lb.h=30;lb.w=30;lb.x=100-5;lb.y=20;
+    nk_layout_space_push(ctx,lb);
+    nk_label_colored(ctx,"select",NK_TEXT_ALIGN_RIGHT,RGBAu32_to_nk_color(STYLE_RED));
+
+    // right
+    lb.h=20;lb.w=20;lb.x=50;lb.y=32+5;
+    nk_layout_space_push(ctx,lb);
+    GUI_color_round_button(ctx, STYLE_GREY+(b_right?b:0),STYLE_GREY + b, 1);
+    //center
+    lb.h=20;lb.w=20;lb.x=30;lb.y=32+5;
+    nk_layout_space_push(ctx,lb);
+    GUI_color_round_button(ctx, STYLE_GREY,STYLE_GREY, 1);
+    //left
+    lb.h=20;lb.w=20;lb.x=10;lb.y=32+5;
+    nk_layout_space_push(ctx,lb);
+    GUI_color_round_button(ctx, STYLE_GREY+(b_left?b:0),STYLE_GREY+ b, 1);
+    // up
+    lb.h=20;lb.w=20;lb.x=30;lb.y=12+5;
+    nk_layout_space_push(ctx,lb);
+    GUI_color_round_button(ctx, STYLE_GREY+(b_up?b:0),STYLE_GREY+ b, 1);
+    //down
+    lb.h=20;lb.w=20;lb.x=30;lb.y=52+5;
+    nk_layout_space_push(ctx,lb);
+    GUI_color_round_button(ctx, STYLE_GREY+(b_down?b:0),STYLE_GREY+ b, 1);
+    
+nk_layout_space_end(ctx);
+// clang-format on
     nk_end(ctx);
   }
 }
