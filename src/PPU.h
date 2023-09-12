@@ -168,6 +168,6 @@ typedef enum {
   PALETTE_2C05_05 = 10
 } PPU_PALETTE;
 
-uint32_t PPU_PALETTE_RGBA[11][64];
+extern uint32_t PPU_PALETTE_RGBA[11][64];
 
 #endif // PPU_H

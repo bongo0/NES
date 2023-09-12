@@ -1,5 +1,7 @@
 #include "PPU.h"
 
+uint32_t PPU_PALETTE_RGBA[11][64];
+
 void PPU_init(PPU *ppu, NES_ROM *rom) {
   ppu->state.data_buf = 0;
   ppu->state.adr_write_latch = 0;
@@ -422,6 +424,7 @@ static inline uint8_t reverse_byte(uint8_t b) {
   return b;
 }
 
+// https://github.com/OneLoneCoder/olcNES
 void PPU_tick(PPU *ppu) {
   // All but 1 of the secanlines is visible to the user. The pre-render
   // scanline at -1, is used to configure the "shifters" for the first visible

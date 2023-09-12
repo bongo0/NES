@@ -279,7 +279,7 @@ int8_t APU_square_channel_tick(APU_square_channel *sq) { // OK
   if (sample != 0)
     sq->start_rec = 1; // first nonzero sample starts rec
   if (sq->start_rec) {
-    //  fprintf(sq->sqr_f, "%d\n", sample);
+      fprintf(sq->sqr_f, "%d\n", sample);
   }
 #endif
 
@@ -350,7 +350,7 @@ void APU_triangle_channel_tick(APU_triangle_channel *tr) {
   if (sample != 0)
     tr->start_rec = 1; // first nonzero sample starts rec
   if (tr->start_rec) {
-    // fprintf(tr->sqr_f, "%d\n", sample);
+     fprintf(tr->sqr_f, "%d\n", sample);
   }
 #endif
 }

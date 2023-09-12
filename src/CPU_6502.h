@@ -83,7 +83,7 @@ typedef struct {
 } CPU_state;
 
 // maybe make this opaque type
-typedef struct {
+typedef struct CPU_6502 {
   CPU_state state;
   CPU_state previous_state;// for logging
   //uint8_t ram[CPU_RAM_SIZE];
@@ -136,16 +136,17 @@ void CPU_emit_IRQ(CPU_6502 *cpu, uint8_t irq);
 void CPU_emit_NMI(CPU_6502 *cpu, uint8_t nmi);
 void CPU_NMI(CPU_6502 *cpu);
 void CPU_IRQ(CPU_6502 *cpu);
-opcode_func_t CPU_op_table[256];
-CPU_addr_mode CPU_addr_mode_table[256];
+extern opcode_func_t CPU_op_table[256];
+extern CPU_addr_mode CPU_addr_mode_table[256];
 
-char *CPU_op_names[256];
+extern char *CPU_op_names[256];
 
+// bit field:
 typedef struct {
   uint8_t cycles : 4;
   uint8_t cross : 4;
 } CPU_op_cycles_t;
-CPU_op_cycles_t CPU_op_cycles_table[256];
+extern CPU_op_cycles_t CPU_op_cycles_table[256];
 
 size_t CPU_disassemble(uint8_t *data, uint16_t size, char **out);
 size_t CPU_disassemble_arr(uint8_t *data, uint32_t size, char ***out);

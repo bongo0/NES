@@ -8,7 +8,7 @@
 
 #include "logger.h"
 #include "mappers.h"
-#include "common_types.h"
+//#include "common_types.h"
 
 #define NES_ROM_SIZE 0x1000
 
@@ -29,11 +29,11 @@
   case 3: rom->system_type = DENDY; break;                                     \
   }
 
-const char *NES_PPU_MODEL_STR[11];
-const char *NES_MIRRORING_TYPE_STR[5];
-const char *NES_SYSTEM_TYPE_STR[8];
-const char *NES_VS_SYSTEM_TYPE_STR[7];
-const char *NES_INPUT_TYPE_STR[47];
+extern const char *NES_PPU_MODEL_STR[11];
+extern const char *NES_MIRRORING_TYPE_STR[5];
+extern const char *NES_SYSTEM_TYPE_STR[8];
+extern const char *NES_VS_SYSTEM_TYPE_STR[7];
+extern const char *NES_INPUT_TYPE_STR[47];
 
 
 

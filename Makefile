@@ -19,7 +19,7 @@ bin/nes: $(OBJS) $(DEPS_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(INCLUDES)
 
 $(OBJS): obj/%.o: src/%.c $(HEADERS)
-	$(CC) $(CFLAGS) -c -o $@ $< $(INCLUDES)
+	$(CC) $(CFLAGS) -c -o $@ $< 
 
 test/bin/%: test/%.c $(LIB_OBJS) $(DEPS_OBJS)
 	$(CC) $(CFLAGS) $< $(LIB_OBJS) $(DEPS_OBJS) -o $@ $(INCLUDES) -lcriterion

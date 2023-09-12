@@ -30,7 +30,7 @@ static inline char byte_to_printable_ascii(uint8_t b) {
 
 void GUI_init(GUI_context *ctx, NES_BUS *nes) {
 
-  if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
+  if (SDL_Init(SDL_INIT_EVERYTHING) < 0) {
     LOG_ERROR("SDL INIT ERROR: %s\n", SDL_GetError());
     GUI_quit(ctx);
     return;
@@ -40,8 +40,8 @@ void GUI_init(GUI_context *ctx, NES_BUS *nes) {
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
-  SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 0);
-  // SDL_GL_SetSwapInterval(0);
+  SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+  //SDL_GL_SetSwapInterval(0);
   ctx->window =
       SDL_CreateWindow("NES", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                        WIN_WIDTH, WIN_HEIGHT,
@@ -129,6 +129,7 @@ int GUI_process_events(GUI_context *ctx) {
 
 void GUI_render_begin(GUI_context *ctx) {
   SDL_GetWindowSize(ctx->window, &ctx->win_width, &ctx->win_height);
+  //LOG_WARNING("width: %d height: %d \n",ctx->win_width,ctx->win_height);
 }
 
 void GUI_render_end(GUI_context *ctx) {

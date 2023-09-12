@@ -7,6 +7,12 @@ uint8_t BUS_cpu_read(NES_BUS *nes, uint16_t adr);
 #include <memory.h>
 #include <stdint.h>
 
+opcode_func_t CPU_op_table[256];
+CPU_addr_mode CPU_addr_mode_table[256];
+CPU_op_cycles_t CPU_op_cycles_table[256];
+
+char *CPU_op_names[256];
+
 uint16_t CPU_get_operand(CPU_6502 *cpu);
 uint8_t CPU_get_op(CPU_6502 *cpu);
 uint8_t CPU_read_memory(CPU_6502 *cpu, uint16_t addr);
